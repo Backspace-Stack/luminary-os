@@ -1,0 +1,37 @@
+{
+  "name": "luminary-os",
+  "version": "0.1.0",
+  "description": "Local-first AI agent runtime and control interface",
+  "private": true,
+  "engines": {
+    "node": ">=24 <25",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "start": "node scripts/start.js",
+    "dev": "node scripts/start.js",
+    "setup": "node scripts/setup.js",
+    "doctor": "node scripts/doctor.js",
+    "memories": "node scripts/memories.js",
+    "install:all": "npm ci && npm ci --prefix backend && npm ci --prefix frontend",
+    "dev:backend": "npm run dev  --prefix backend",
+    "dev:frontend": "npm run dev  --prefix frontend",
+    "build:backend": "npm run build --prefix backend",
+    "build:frontend": "npm run build --prefix frontend",
+    "build": "npm run build:backend && npm run build:frontend",
+    "lint": "npm run lint --prefix backend && npm run lint --prefix frontend",
+    "test": "node scripts/test.js",
+    "typecheck": "npm exec --prefix backend -- tsc --noEmit --project backend/tsconfig.tests.json && npm exec --prefix frontend -- tsc --noEmit --project frontend/tsconfig.json",
+    "check:repository": "node scripts/check-repository.js"
+  },
+  "devDependencies": {
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "tsx": "^4.23.15",
+    "typescript-eslint": "^8.71.0"
+  },
+  "license": "MIT",
+  "allowScripts": {
+    "esbuild": true
+  }
+}

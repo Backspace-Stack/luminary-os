@@ -1,0 +1,59 @@
+# =============================================================
+# Luminary OS — Docker Compose (optional)
+#
+# Status: STUB — container builds are not yet implemented.
+# The easiest way to run Luminary OS is still: npm start
+#
+# When ready to containerise:
+#   docker compose up --build
+# =============================================================
+
+version: '3.9'
+
+services:
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      # Must be 0.0.0.0 in-container — 127.0.0.1 would bind only inside the
+      # container's own network namespace and the "3001:3001" mapping below
+      # would silently stop working.
+      BIND_HOST: 0.0.0.0
+      FRONTEND_URL: http://localhost:5173
+      OLLAMA_BASE_URL: http://ollama:11434
+    # volumes:
+    #   - ../backend/.env:/app/.env:ro
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Optional: local Ollama model server
+  # Requires a machine with a compatible GPU or sufficient RAM
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    # Uncomment to pre-pull a model on first start:
+    # entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull llama3.2:3b && wait"]
+
+volumes:
+  ollama_data:

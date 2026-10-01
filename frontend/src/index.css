@@ -1,0 +1,434 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ════════════════════════════════════════════════════════════
+   Luminary design tokens.
+
+   These are DEFAULTS ONLY — the theme engine (src/theme/engine.ts)
+   projects the active ThemeState onto these variables at boot and
+   on every Theme Center change. Nothing below should hardcode an
+   accent color; everything derives from --lum-accent-rgb.
+   ════════════════════════════════════════════════════════════ */
+:root {
+  --lum-accent-rgb:    139 124 255;
+  --lum-accent:        #8B7CFF;
+  --lum-accent-bright: #A99DFF;
+  --lum-accent-deep:   #7668E0;
+  --lum-accent-grad:   linear-gradient(160deg, #A29AFF 0%, #7C6DF2 100%);
+
+  /* Legacy aliases (M5 components) — kept in sync by the engine */
+  --lum-violet:        var(--lum-accent);
+  --lum-violet-soft:   rgb(var(--lum-accent-rgb) / 0.14);
+  --lum-violet-border: rgb(var(--lum-accent-rgb) / 0.32);
+
+  --lum-ice:           #8FC6E8;
+  --lum-ice-soft:      rgba(143, 198, 232, 0.12);
+  --lum-aurora:        #F4F7FC;
+  --lum-text:          #E8EDF5;
+  --lum-text-secondary:#9AA4B9;
+  --lum-text-muted:    #6E7890;
+  --lum-bg:            #06080F;
+
+  /* Liquid glass — alpha, blur, and material intensity are live */
+  --lum-glass:         rgb(13 17 28 / 0.48);
+  --lum-glass-strong:  rgb(10 14 24 / 0.58);
+  --lum-blur:          20px;
+  --lum-blur-strong:   28px;
+  --lum-saturate:      1.6;
+  --lum-fx:            1;
+  --lum-glass-border:  rgba(255, 255, 255, 0.1);
+  --lum-glass-highlight: rgba(255, 255, 255, 0.09);
+
+  --lum-radius:        16px;
+  --lum-radius-sm:     10px;
+  --lum-radius-lg:     20px;
+
+  --lum-font: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', 'Inter Variable', sans-serif;
+
+  --lum-success:       #6FCF97;
+  --lum-warning:       #E8B36B;
+  --lum-danger:        #E8746B;
+}
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body, #root {
+    height: 100%;
+    background: var(--lum-bg);
+    color: var(--lum-text);
+    font-family: var(--lum-font);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection { background: rgb(var(--lum-accent-rgb) / 0.35); color: #fff; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.10);
+    border-radius: 3px;
+    transition: background 0.2s;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.20); }
+}
+
+/* Motion kill-switch — Theme Center "Motion: off".
+   CSS transitions/animations stop instantly; framer-motion is
+   handled separately via MotionConfig in App.tsx. */
+html[data-motion='off'] *,
+html[data-motion='off'] *::before,
+html[data-motion='off'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+@layer utilities {
+  .font-mono { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', 'Cascadia Code', Consolas, monospace; }
+  .text-lum-text { color: var(--lum-text); }
+  .text-lum-muted { color: var(--lum-text-muted); }
+  .text-lum-secondary { color: var(--lum-text-secondary); }
+  /* Metric values: fixed-width digits so animated numbers never jitter */
+  .tabular { font-variant-numeric: tabular-nums; }
+}
+
+/* Focus ring for glass input containers */
+.lum-input-focus { transition: border-color 0.2s ease, box-shadow 0.25s ease; }
+.lum-input-focus:focus-within {
+  border-color: rgb(var(--lum-accent-rgb) / 0.45) !important;
+  box-shadow:
+    0 22px 52px -24px rgba(0, 0, 0, 0.8),
+    0 0 0 3px rgb(var(--lum-accent-rgb) / 0.12),
+    0 0 24px -6px rgb(var(--lum-accent-rgb) / 0.35),
+    inset 0 1px 0 var(--lum-glass-highlight);
+}
+
+/* ── Liquid glass ────────────────────────────────────────────
+   A physical material, not a tinted rectangle. Five layers:
+     1. edge lensing   — light gathers at the top-leading corner
+                         (radial) as if the pane bends light
+     2. surface tint   — the translucent charcoal body
+     3. optics         — backdrop blur + saturation + brightness:
+                         what's BEHIND the pane (wallpaper, snow)
+                         comes through lifted and vivid
+     4. rims           — top/leading edges catch light, trailing
+                         edges fall into shadow (border colors)
+     5. interior glow  — soft inner top-light + bottom occlusion
+   Alpha, blur and intensity all follow the theme engine live.  */
+.lum-glass {
+  position: relative;
+  background:
+    radial-gradient(130% 90% at 6% -4%,
+      rgba(255,255,255, calc(0.11 * var(--lum-fx))) 0%,
+      rgba(255,255,255, calc(0.03 * var(--lum-fx))) 36%,
+      rgba(255,255,255, 0) 62%),
+    radial-gradient(90% 60% at 96% 104%,
+      rgba(255,255,255, calc(0.045 * var(--lum-fx))) 0%,
+      rgba(255,255,255, 0) 55%),
+    var(--lum-glass);
+  -webkit-backdrop-filter: blur(var(--lum-blur)) saturate(var(--lum-saturate)) brightness(1.12);
+  backdrop-filter: blur(var(--lum-blur)) saturate(var(--lum-saturate)) brightness(1.12);
+  border: 1px solid var(--lum-glass-border);
+  border-top-color: rgba(255,255,255, calc(0.24 * var(--lum-fx)));
+  border-left-color: rgba(255,255,255, calc(0.15 * var(--lum-fx)));
+  border-bottom-color: rgba(255,255,255, calc(0.06 * var(--lum-fx)));
+  border-radius: var(--lum-radius);
+  box-shadow:
+    0 24px 60px -28px rgba(0, 0, 0, 0.85),
+    0 2px 10px -2px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255,255,255, calc(0.17 * var(--lum-fx))),
+    inset 0 12px 28px -18px rgba(255,255,255, calc(0.10 * var(--lum-fx))),
+    inset 0 -16px 30px -22px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 0.5px rgba(255,255,255, calc(0.05 * var(--lum-fx)));
+  transition: border-color 0.35s ease, box-shadow 0.4s ease;
+}
+
+/* Ambient accent aura — any glass pane under the cursor glows */
+.lum-glass.lum-luminous:hover {
+  border-color: rgb(var(--lum-accent-rgb) / 0.30);
+  border-top-color: rgb(var(--lum-accent-rgb) / 0.42);
+  box-shadow:
+    0 24px 60px -28px rgba(0, 0, 0, 0.85),
+    0 2px 10px -2px rgba(0, 0, 0, 0.4),
+    0 0 38px -8px rgb(var(--lum-accent-rgb) / calc(0.30 * var(--lum-fx))),
+    inset 0 1px 0 rgba(255,255,255, calc(0.20 * var(--lum-fx))),
+    inset 0 12px 28px -18px rgba(255,255,255, calc(0.12 * var(--lum-fx))),
+    inset 0 -16px 30px -22px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 0.5px rgba(255,255,255, calc(0.06 * var(--lum-fx)));
+}
+
+/* Chrome pane (sidebar / topbar / chat rail) — CLEARER than the
+   cards so the living wallpaper and snow read straight through;
+   heavier blur keeps text legible over anything */
+.lum-glass-strong {
+  position: relative;
+  background:
+    radial-gradient(120% 70% at 10% -6%,
+      rgba(255,255,255, calc(0.09 * var(--lum-fx))) 0%,
+      rgba(255,255,255, calc(0.02 * var(--lum-fx))) 40%,
+      rgba(255,255,255, 0) 64%),
+    var(--lum-glass-strong);
+  -webkit-backdrop-filter: blur(var(--lum-blur-strong)) saturate(var(--lum-saturate)) brightness(1.10);
+  backdrop-filter: blur(var(--lum-blur-strong)) saturate(var(--lum-saturate)) brightness(1.10);
+  border: 1px solid var(--lum-glass-border);
+  box-shadow:
+    0 22px 52px -24px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255,255,255, calc(0.13 * var(--lum-fx))),
+    inset 0 16px 34px -24px rgba(255,255,255, calc(0.08 * var(--lum-fx)));
+}
+
+/* Barely-there pane for rows/inputs inside other glass */
+.lum-glass-subtle {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--lum-radius-sm);
+}
+
+/* ── Glass↔Focus cross-fade ───────────────────────────────────
+   [data-mode-transition] is pulsed true for ~500ms by setTheme()
+   only when `mode` itself changes (see theme/engine.ts) — NOT a
+   permanent transition. Theme Center's Blur/Transparency/Glass
+   Strength sliders write these same custom properties on every
+   drag tick; a permanent transition here would make dragging feel
+   laggy instead of 1:1. Gating it to the mode flip keeps slider
+   response instant while making Focus Mode's entry/exit a smooth
+   fade instead of a hard cut. */
+html[data-mode-transition='true'],
+html[data-mode-transition='true'] body,
+html[data-mode-transition='true'] #root {
+  transition: background-color 0.4s ease;
+}
+html[data-mode-transition='true'] .lum-glass,
+html[data-mode-transition='true'] .lum-glass-strong {
+  transition: background-color 0.4s ease, backdrop-filter 0.4s ease,
+    -webkit-backdrop-filter 0.4s ease, border-color 0.35s ease, box-shadow 0.4s ease;
+}
+
+/* Diagonal light streak — a quiet reflection across glass */
+.lum-reflect::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(115deg,
+    transparent 0%, transparent 42%,
+    rgba(255, 255, 255, calc(0.035 * var(--lum-fx))) 47%,
+    rgba(255, 255, 255, calc(0.06 * var(--lum-fx))) 50%,
+    rgba(255, 255, 255, calc(0.035 * var(--lum-fx))) 53%,
+    transparent 58%, transparent 100%);
+}
+
+/* ── Luminous hover — Luminary's signature ───────────────────
+   A pool of light with a white specular core follows the
+   pointer across glass panes. Components set --mx/--my via
+   pointermove (pointerLight in the ui kit — cards AND chrome). */
+.lum-luminous::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  background:
+    radial-gradient(90px circle at var(--mx, 50%) var(--my, 50%),
+      rgba(255,255,255, calc(0.07 * var(--lum-fx))),
+      transparent 100%),
+    radial-gradient(320px circle at var(--mx, 50%) var(--my, 50%),
+      rgb(var(--lum-accent-rgb) / calc(0.14 * var(--lum-fx))),
+      rgba(255,255,255, calc(0.03 * var(--lum-fx))) 45%,
+      transparent 72%);
+  z-index: 0;
+}
+.lum-luminous:hover::before { opacity: 1; }
+
+/* Breathing accent aura — active elements are quietly alive */
+@keyframes lumAura {
+  0%, 100% { box-shadow: 0 0 22px -6px rgb(var(--lum-accent-rgb) / 0.35), 0 4px 16px -8px rgb(var(--lum-accent-rgb) / 0.5), inset 0 1px 0 rgba(255,255,255,0.08); }
+  50%      { box-shadow: 0 0 34px -4px rgb(var(--lum-accent-rgb) / 0.55), 0 4px 20px -8px rgb(var(--lum-accent-rgb) / 0.6), inset 0 1px 0 rgba(255,255,255,0.12); }
+}
+.lum-aura { animation: lumAura 4.5s ease-in-out infinite; }
+
+/* Film grain — one fixed overlay in Layout; keeps glass organic */
+.lum-noise {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.028;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  mix-blend-mode: overlay;
+}
+
+/* ── Range slider — Theme Center controls ────────────────────*/
+input[type='range'].lum-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 20px;
+  background: transparent;
+  cursor: pointer;
+  --pct: 50%;
+}
+input[type='range'].lum-range::-webkit-slider-runnable-track {
+  height: 5px;
+  border-radius: 3px;
+  background:
+    linear-gradient(90deg,
+      rgb(var(--lum-accent-rgb) / 0.9) 0%,
+      rgb(var(--lum-accent-rgb) / 0.55) var(--pct),
+      rgba(255,255,255,0.09) var(--pct));
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.4);
+}
+input[type='range'].lum-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  margin-top: -5.5px;
+  background: linear-gradient(180deg, #fff, #D8DCEA);
+  border: 1px solid rgba(255,255,255,0.5);
+  box-shadow:
+    0 1px 5px rgba(0,0,0,0.5),
+    0 0 12px rgb(var(--lum-accent-rgb) / 0.45);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+input[type='range'].lum-range::-webkit-slider-thumb:hover { transform: scale(1.15); }
+input[type='range'].lum-range:active::-webkit-slider-thumb {
+  transform: scale(1.25);
+  box-shadow: 0 1px 5px rgba(0,0,0,0.5), 0 0 18px rgb(var(--lum-accent-rgb) / 0.7);
+}
+input[type='range'].lum-range::-moz-range-track {
+  height: 5px; border-radius: 3px; background: rgba(255,255,255,0.09);
+}
+input[type='range'].lum-range::-moz-range-progress {
+  height: 5px; border-radius: 3px; background: rgb(var(--lum-accent-rgb) / 0.8);
+}
+input[type='range'].lum-range::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: linear-gradient(180deg, #fff, #D8DCEA);
+  border: 1px solid rgba(255,255,255,0.5);
+  box-shadow: 0 1px 5px rgba(0,0,0,0.5), 0 0 12px rgb(var(--lum-accent-rgb) / 0.45);
+}
+
+/* ── Motion primitives ───────────────────────────────────── */
+@keyframes lumPulse {
+  0%, 100% { opacity: 0.25; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.9); }
+}
+.lum-pulse-ring { animation: lumPulse 2.4s ease-in-out infinite; }
+
+@keyframes lumShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.lum-skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.04) 25%,
+    rgba(255,255,255,0.09) 50%,
+    rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: lumShimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes lumBreathe {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.85; }
+}
+.lum-breathe { animation: lumBreathe 7s ease-in-out infinite; }
+
+@keyframes lumFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.lum-float { animation: lumFloat 5s ease-in-out infinite; }
+
+/* Boot veil — the OS breathes in on launch */
+@keyframes lumBootFade {
+  0% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
+}
+@keyframes lumBootMark {
+  0% { opacity: 0; transform: scale(0.92); filter: blur(6px); }
+  45% { opacity: 1; transform: scale(1); filter: blur(0); }
+  100% { opacity: 1; transform: scale(1.02); }
+}
+
+/* Streaming thinking indicator — three quiet dots */
+@keyframes lumThink {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+.lum-think-dot {
+  display: inline-block;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--lum-accent);
+  animation: lumThink 1.3s ease-in-out infinite;
+}
+.lum-think-dot:nth-child(2) { animation-delay: 0.18s; }
+.lum-think-dot:nth-child(3) { animation-delay: 0.36s; }
+
+/* Continuous rotation — running-state spinner in the tool table */
+@keyframes lumSpin { to { transform: rotate(360deg); } }
+.lum-spin { animation: lumSpin 0.9s linear infinite; }
+
+/* ── Chat markdown (assistant messages) ──────────────────── */
+.lum-md { font-size: 13.5px; line-height: 1.7; color: var(--lum-text); word-break: break-word; }
+.lum-md > *:first-child { margin-top: 0; }
+.lum-md > *:last-child { margin-bottom: 0; }
+.lum-md p { margin: 0 0 10px; }
+.lum-md h1, .lum-md h2, .lum-md h3, .lum-md h4 {
+  margin: 18px 0 8px; font-weight: 600; color: var(--lum-aurora); line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.lum-md h1 { font-size: 17px; }
+.lum-md h2 { font-size: 15.5px; }
+.lum-md h3 { font-size: 14px; }
+.lum-md h4 { font-size: 13.5px; }
+.lum-md ul, .lum-md ol { margin: 0 0 10px; padding-left: 22px; }
+.lum-md li { margin: 3px 0; }
+.lum-md blockquote {
+  margin: 0 0 10px; padding: 6px 12px;
+  border-left: 2px solid var(--lum-accent); color: var(--lum-text-secondary);
+  background: var(--lum-violet-soft); border-radius: 0 6px 6px 0;
+}
+.lum-md hr { border: none; height: 1px; background: rgba(255,255,255,0.08); margin: 14px 0; }
+.lum-md table { border-collapse: collapse; margin: 0 0 10px; font-size: 12.5px; }
+.lum-md th, .lum-md td { border: 1px solid rgba(255,255,255,0.1); padding: 5px 10px; text-align: left; }
+.lum-md th { background: rgba(255,255,255,0.04); font-weight: 600; }
+.lum-md strong { color: #fff; }
+
+.lum-inline-code {
+  font-family: 'JetBrains Mono Variable', 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+  font-size: 12px; padding: 1.5px 5px; border-radius: 4px;
+  background: var(--lum-violet-soft); color: var(--lum-accent-bright);
+}
+
+.lum-codeblock {
+  margin: 0 0 10px; border-radius: 10px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.09);
+  box-shadow: 0 8px 24px -14px rgba(0,0,0,0.6);
+}
+.lum-codeblock-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 12px; background: rgba(10, 13, 21, 0.92);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Blinking caret shown while a response is streaming in */
+@keyframes lumBlink { 0%, 55% { opacity: 1; } 60%, 100% { opacity: 0; } }
+.lum-stream-caret {
+  display: inline-block; width: 7px; height: 14px; margin-left: 2px;
+  background: var(--lum-accent); border-radius: 1.5px; vertical-align: text-bottom;
+  animation: lumBlink 0.9s steps(1) infinite;
+  box-shadow: 0 0 8px rgb(var(--lum-accent-rgb) / 0.6);
+}
+/* Keep keyboard position visible without changing the established theme. */
+:focus-visible { outline: 2px solid var(--lum-accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
