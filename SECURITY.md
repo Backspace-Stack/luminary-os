@@ -2,7 +2,7 @@
 
 Luminary is an early local agent application with powerful host-facing tools. Filesystem confinement, Git subprocess rules, approval lifecycle, HTTP authentication/origin checks, model uploads, native model loading, Discord authorization, and secrets persistence are security-sensitive.
 
-Report vulnerabilities privately. Once the repository exists, use **Security → Report a vulnerability** if the owner has enabled GitHub private vulnerability reporting. If unavailable, request a private reporting channel from the maintainer without publishing exploit details or private data. No security email is established here; do not send reports to an invented address. The owner should enable private vulnerability reporting before publication.
+Report vulnerabilities privately using [GitHub private vulnerability reporting](https://github.com/Backspace-Stack/luminary-os/security/advisories/new). If unavailable, request a private reporting channel from the maintainer without publishing exploit details or private data. No security email is established here; do not send reports to an invented address.
 
 Provide affected version/commit, platform, reproduction steps, expected/actual behavior, and a minimal harmless fixture. Redact tokens, model prompts, notes, personal paths and conversation content. Do not put real credentials or a working destructive exploit in public issues.
 

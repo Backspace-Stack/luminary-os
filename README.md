@@ -6,6 +6,8 @@ A local-first AI agent runtime and control interface for conversations, model ro
 
 ![Node 24](https://img.shields.io/badge/Node-24_LTS-339933?logo=node.js) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript) ![License MIT](https://img.shields.io/badge/license-MIT-blue)
 
+[![Verify](https://github.com/Backspace-Stack/luminary-os/actions/workflows/ci.yml/badge.svg)](https://github.com/Backspace-Stack/luminary-os/actions/workflows/ci.yml)
+
 **Status:** early developer preview, version 0.1.0. Windows installation and local API/UI operation are verified. Native inference and external integrations require their own configuration and validation. This is an agent application, not a replacement for the host operating system.
 
 ![Dashboard on a fresh local install](docs/screenshots/dashboard.jpg)
@@ -112,11 +114,11 @@ Conversations, identity, curated memories, notes, keys, and models stay in local
 - GGUF hardware compatibility and live inference need testing with your models. GGUF discovery does not guarantee a file is safe or runnable; use trusted sources.
 - Cloud adapters and Discord require credentials and may change upstream. Tests mock network boundaries; they do not certify every hosted model.
 - Pages load on demand, and the full syntax-highlighting bundle is fetched only for language-tagged code. That optional bundle remains large; readable plaintext remains available if highlighting cannot load. UI accessibility and non-Windows coverage remain areas for improvement.
-- MIT license text is provided, but the copyright-holder placeholder must be reviewed before publication.
+- Source code is covered by the [MIT license](LICENSE). Dependencies retain their own licenses.
 
 ## Development
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [feature verification matrix](docs/testing.md). Tests use Node's native runner with `tsx`; they exercise temporary files/SQLite, real local HTTP streaming, launcher processes and mocked model responses without Ollama, API keys, hardware, or model downloads. GitHub CI runs lint, tests, and builds on Windows and Linux; hosted execution remains unverified until publication.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [feature verification matrix](docs/testing.md). Tests use Node's native runner with `tsx`; they exercise temporary files/SQLite, real local HTTP streaming, launcher processes and mocked model responses without Ollama, API keys, hardware, or model downloads. GitHub CI is configured to run lint, tests, and builds on Windows and Linux; see the [workflow](https://github.com/Backspace-Stack/luminary-os/actions/workflows/ci.yml) for its current status.
 
 Near-term priorities: wider tool-boundary tests, native inference integration tests with real models, a broader accessibility review, a maintained plugin example, and verified macOS/Linux setup. No dates are promised.
 

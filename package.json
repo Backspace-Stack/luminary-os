@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "Local-first AI agent runtime and control interface",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Backspace-Stack/luminary-os.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Backspace-Stack/luminary-os/issues"
+  },
+  "homepage": "https://github.com/Backspace-Stack/luminary-os#readme",
   "engines": {
     "node": ">=24 <25",
     "npm": ">=10"

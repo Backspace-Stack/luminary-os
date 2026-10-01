@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 — prepared locally, not released
+## 0.1.0 — developer preview
 
 - Use the original logo consistently across app branding, favicon and README; derive displayed version and Node requirement from package metadata.
 - Preserve note edits across autosave/research failures and page switches; reject stale research inserts rather than overwrite newer text.
@@ -21,4 +21,4 @@
 - Update affected dependencies and document incomplete integrations, plaintext local secrets and remaining security assumptions.
 - Promote accurate root documentation and exclude personal/generated content from publication candidates.
 
-This entry describes a repository preparation pass. It is not evidence of a published release or live cloud/native-hardware certification. Historical development notes are retained in [docs/history/CHANGELOG.md](docs/history/CHANGELOG.md); those notes are not current release guarantees.
+This entry describes the developer-preview source. Live inference, cloud integrations and native hardware still require separate validation. Historical development notes are retained in [docs/history/CHANGELOG.md](docs/history/CHANGELOG.md); those notes are not current release guarantees.

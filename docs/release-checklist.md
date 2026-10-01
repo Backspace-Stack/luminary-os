@@ -1,14 +1,14 @@
-# Before publishing 0.1.0
+# Before releasing 0.1.0
 
-- [ ] Review and replace `[Copyright holder]` in LICENSE with the actual rights holder.
+- [x] Set LICENSE attribution to the project owner's GitHub handle, Backspace-Stack.
 - [ ] Review the complete tracked-file list, dependency licenses and supplied image rights.
 - [ ] Run `npm run check:repository`, `npm run lint`, `npm test`, and `npm run build` from a fresh checkout after `npm run setup`.
 - [ ] Confirm only `.env.example` configuration is tracked; no personal state, conversations, database files, weights, credentials, dependencies or builds.
 - [ ] Verify the interface and health endpoint with Ollama unavailable; test real inference with a supported model on the intended release host.
 - [ ] Review experimental Docker/device/browser/Windows features and platform limits in README.
-- [ ] Enable GitHub private vulnerability reporting and secret protection where available.
-- [ ] Obtain the owner's explicit approval before creating a public repository, pushing, tagging or publishing a release.
-- [ ] Once the real repository URL exists, add repository/bugs metadata and an actual CI badge. Do not invent URLs or a passing hosted CI result.
+- [x] Enable GitHub private vulnerability reporting, dependency alerts, secret scanning and push protection.
+- [x] Obtain the owner's explicit approval to publish the source repository. Tagged releases and packaged releases require separate approval.
+- [x] Add the canonical repository URL, issue tracker metadata and CI badge. Consult the workflow for its current hosted result.
 
 Suggested repository name: `luminary-os`.
 
