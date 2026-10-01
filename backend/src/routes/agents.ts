@@ -1,6 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { agentService } from '../services/AgentService';
-import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
 
@@ -31,12 +30,15 @@ router.post('/:id/activate', (req: Request, res: Response, next: NextFunction) =
 /** PUT /api/agents/:id/model — assign a real installed model to an agent. */
 router.put('/:id/model', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const model = String(req.body?.model ?? '').trim();
+    if (typeof req.body?.model !== 'string') {
+      return res.status(400).json({ success: false, message: '"model" must be a string' });
+    }
+    const model = req.body.model.trim();
     if (!model) return res.status(400).json({ success: false, message: '"model" is required' });
     const agent = await agentService.setAgentModel(req.params.id, model);
     res.json({ success: true, data: agent });
   } catch (err) {
-    next(new AppError(err instanceof Error ? err.message : String(err), 400));
+    next(err);
   }
 });
 

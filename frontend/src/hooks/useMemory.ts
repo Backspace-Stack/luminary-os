@@ -8,6 +8,7 @@ export function useMemory(filter: MemoryFilter = {}) {
   const [error, setError]       = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await memoryApi.list(filter);
       setMemories(data);
@@ -23,8 +24,13 @@ export function useMemory(filter: MemoryFilter = {}) {
   useEffect(() => { refresh(); }, [refresh]);
 
   const remove = async (id: string) => {
-    await memoryApi.remove(id).catch(() => null);
-    setMemories(prev => prev.filter(m => m.id !== id));
+    try {
+      await memoryApi.remove(id);
+      setMemories(prev => prev.filter(m => m.id !== id));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete memory');
+    }
   };
 
   const create = async (entry: Omit<MemoryEntry, 'id'>) => {
@@ -39,5 +45,5 @@ export function useMemory(filter: MemoryFilter = {}) {
     return updated;
   };
 
-  return { memories, loading, error, remove, create, update, refresh };
+  return { memories, loading, error, remove, create, update, refresh, clearError: () => setError(null) };
 }

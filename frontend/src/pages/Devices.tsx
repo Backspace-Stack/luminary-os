@@ -18,7 +18,7 @@ const STATUS_BADGE: Record<DeviceStatus, 'success'|'cyan'|'error'|'warning'> = {
 };
 
 export default function Devices() {
-  const { devices, loading, connect, disconnect } = useDevices();
+  const { devices, loading, error, connect, disconnect, refresh } = useDevices();
   const [theme] = useTheme();
 
   const online    = devices.filter(d => d.status !== 'offline').length;
@@ -47,6 +47,13 @@ export default function Devices() {
       </div>
 
       {loading && <div className="text-[12px] p-4" style={{ color:'var(--lum-text-muted)' }}>Loading devices…</div>}
+      {error && <div role="alert" className="flex items-center gap-3 text-[12px] p-4" style={{ color: 'var(--lum-danger)' }}>
+        {error}<Button size="sm" onClick={refresh}>Retry</Button>
+      </div>}
+      {!loading && !error && devices.length === 0 && <Card style={{ padding: 24 }}>
+        <div className="text-[13px] font-medium mb-1">No devices registered</div>
+        <div className="text-[12px]" style={{ color: 'var(--lum-text-muted)' }}>Device adapters and pairing are experimental. No connection or device activity is simulated.</div>
+      </Card>}
 
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))' }}>
         {devices.map(device => {

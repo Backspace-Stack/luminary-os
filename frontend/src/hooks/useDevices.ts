@@ -22,13 +22,23 @@ export function useDevices() {
   useEffect(() => { refresh(); }, [refresh]);
 
   const connect = async (id: string) => {
-    const updated = await devicesApi.connect(id).catch(() => null);
-    if (updated) setDevices(prev => prev.map(d => d.id === id ? updated : d));
+    try {
+      const updated = await devicesApi.connect(id);
+      setDevices(prev => prev.map(d => d.id === id ? updated : d));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect device');
+    }
   };
 
   const disconnect = async (id: string) => {
-    const updated = await devicesApi.disconnect(id).catch(() => null);
-    if (updated) setDevices(prev => prev.map(d => d.id === id ? updated : d));
+    try {
+      const updated = await devicesApi.disconnect(id);
+      setDevices(prev => prev.map(d => d.id === id ? updated : d));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to disconnect device');
+    }
   };
 
   return { devices, loading, error, connect, disconnect, refresh };

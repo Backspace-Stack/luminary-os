@@ -5,7 +5,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, Sparkles } from 'lucide-react';
+import { Lock } from 'lucide-react';
+import BrandLogo from '@/components/ui/BrandLogo';
 import { getPrefs } from '@/lib/prefs';
 
 interface LockScreenProps { onUnlock: () => void; }
@@ -109,7 +110,7 @@ export default function LockScreen({ onUnlock }: LockScreenProps) {
         </motion.div>
 
         <div className="flex items-center gap-2 mt-10" style={{ opacity: 0.55 }}>
-          <Sparkles size={12} style={{ color: 'var(--lum-accent)' }} />
+          <BrandLogo size={16} decorative />
           <span className="text-[11px] tracking-widest uppercase" style={{ color: 'var(--lum-text-muted)' }}>Luminary OS</span>
         </div>
       </motion.div>

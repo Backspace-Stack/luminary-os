@@ -1,3 +1,5 @@
+<img src="frontend/public/brand/lantern-logo.png" alt="Luminary OS" width="72" height="72" />
+
 # Luminary OS
 
 A local-first AI agent runtime and control interface for conversations, model routing, confirmation-gated tools, memory, and notes. Also known as **Lumen Civilian**.
@@ -15,6 +17,8 @@ The screenshots below show real first-run states with no installed models or per
 
 ![Empty chat workspace](docs/screenshots/chat.jpg)
 ![Model management with Ollama unavailable](docs/screenshots/models.jpg)
+
+![About with the shared original logo and package metadata](docs/screenshots/about.jpg)
 
 </details>
 
@@ -41,6 +45,8 @@ npm start
 ```
 
 Setup installs from all three lockfiles and creates local `.env` files from the public examples. Startup runs the existing backend and Vite frontend and opens the interface. On Windows, `Other/setup.bat` and root `run.bat` provide the same flow. On macOS/Linux use `sh Other/setup.sh` and `sh Other/run.sh`; those platforms are not yet validated end to end.
+
+Managed startup uses `http://127.0.0.1:5173` by default. Set `VITE_PORT` in the launcher environment to select another frontend port. The backend authorizes the exact origin opened by the launcher; an explicit `FRONTEND_URL` must be an HTTP localhost/127.0.0.1 origin on that same port. Mismatched addresses fail with instructions instead of weakening the origin guard. Open the displayed address when testing saves.
 
 For local inference, install and start [Ollama](https://ollama.com), then pull a model you can run on your hardware:
 
@@ -110,7 +116,7 @@ Conversations, identity, curated memories, notes, keys, and models stay in local
 
 ## Development
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md). Tests use Node's native runner with `tsx`; they exercise temporary files/SQLite, real local HTTP streaming, launcher processes and mocked model responses without Ollama, API keys, hardware, or model downloads. GitHub CI runs lint, tests, and builds on Windows and Linux; hosted execution remains unverified until publication.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [feature verification matrix](docs/testing.md). Tests use Node's native runner with `tsx`; they exercise temporary files/SQLite, real local HTTP streaming, launcher processes and mocked model responses without Ollama, API keys, hardware, or model downloads. GitHub CI runs lint, tests, and builds on Windows and Linux; hosted execution remains unverified until publication.
 
 Near-term priorities: wider tool-boundary tests, native inference integration tests with real models, a broader accessibility review, a maintained plugin example, and verified macOS/Linux setup. No dates are promised.
 

@@ -6,6 +6,7 @@
 // ============================================================
 
 import fs from 'fs';
+import { resolve } from 'path';
 import { JsonStore } from '../core/persistence/JsonStore';
 import { Logger } from '../core/logger/Logger';
 
@@ -47,7 +48,8 @@ export class SettingsService {
    * from it; model files are never copied or moved.
    */
   setGgufFolder(rawPath: string | null): AppSettings {
-    const path = rawPath?.trim() || null;
+    const trimmed = rawPath?.trim();
+    const path = trimmed ? resolve(trimmed) : null;
 
     if (path !== null) {
       let stat: fs.Stats;
@@ -61,8 +63,11 @@ export class SettingsService {
       }
     }
 
-    this.settings.ggufFolder = path;
-    this.store.save(this.settings);
+    const next = { ...this.settings, ggufFolder: path };
+    if (!this.store.save(next)) {
+      throw new SettingsError('Settings could not be saved. Check the data folder and try again.', 503);
+    }
+    this.settings = next;
     logger.info(`GGUF models folder ${path ? `set to: ${path}` : 'cleared'}`);
     return this.get();
   }

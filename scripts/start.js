@@ -16,13 +16,14 @@ const http = require('http');
 const {
   IS_WIN, which, withLocalBin, runSync, runAsync, killTree, comSpec, diagnose,
 } = require('./lib/shell');
+const { readFrontendUrl, resolveFrontendOrigin } = require('./lib/launch-config');
 
 // ── Paths & ports ─────────────────────────────────────────────
 const ROOT          = path.resolve(__dirname, '..');
 const BACKEND_DIR   = path.join(ROOT, 'backend');
 const FRONTEND_DIR  = path.join(ROOT, 'frontend');
 const BACKEND_PORT  = parseInt(process.env.PORT      || '3001', 10);
-const FRONTEND_PORT = parseInt(process.env.VITE_PORT || '5173', 10);
+const FRONTEND_PORT = Number(process.env.VITE_PORT || '5173');
 
 // ── Terminal capability detection ─────────────────────────────
 // Delegates to lib/banner.js's supportsColor(), which uses Node's
@@ -379,6 +380,9 @@ async function main() {
   // 1. Requirements
   log.step('Checking requirements…');
   checkNode();
+  const frontendUrl = resolveFrontendOrigin(
+    FRONTEND_PORT, process.env.FRONTEND_URL, readFrontendUrl(path.join(BACKEND_DIR, '.env')),
+  );
   checkNpm();
   checkDir(BACKEND_DIR,  'backend');
   checkDir(FRONTEND_DIR, 'frontend');
@@ -390,7 +394,7 @@ async function main() {
   bFree ? log.ok(`Port ${BACKEND_PORT}  (backend)  is free`)
         : log.warn(`Port ${BACKEND_PORT} is already in use — change PORT in backend/.env if needed`);
   fFree ? log.ok(`Port ${FRONTEND_PORT} (frontend) is free`)
-        : log.warn(`Port ${FRONTEND_PORT} is already in use — change VITE_PORT in frontend/.env if needed`);
+        : log.warn(`Port ${FRONTEND_PORT} is already in use — set VITE_PORT in the launcher environment if needed`);
 
   // 3. Environment files
   log.step('Checking environment files…');
@@ -415,7 +419,7 @@ async function main() {
     bin:   'tsx',
     args:  ['src/server.ts'],
     cwd:   BACKEND_DIR,
-    env:   { PORT: String(BACKEND_PORT), FRONTEND_URL: process.env.FRONTEND_URL || `http://localhost:${FRONTEND_PORT}` },
+    env:   { PORT: String(BACKEND_PORT), FRONTEND_URL: frontendUrl },
   });
 
   const backendSpinner = new Spinner(`Waiting for backend on :${BACKEND_PORT}…`).start();
@@ -440,15 +444,15 @@ async function main() {
     label: 'frontend',
     color: C.cyan,
     bin:   'vite',
-    args:  ['--port', String(FRONTEND_PORT), '--host', '127.0.0.1'],
+    args:  ['--port', String(FRONTEND_PORT), '--strictPort', '--host', '127.0.0.1'],
     cwd:   FRONTEND_DIR,
     env:   { BACKEND_PORT: String(BACKEND_PORT) },
   });
 
   const viteSpinner = new Spinner('Compiling frontend…').start();
   try {
-    await waitForHttp(`http://127.0.0.1:${FRONTEND_PORT}`, 60_000);
-    viteSpinner.succeed(`Frontend ready  ${SYM.arrow}  http://localhost:${FRONTEND_PORT}`);
+    await waitForHttp(frontendUrl, 60_000);
+    viteSpinner.succeed(`Frontend ready  ${SYM.arrow}  ${frontendUrl}`);
   } catch {
     viteSpinner.fail('Frontend failed to start within 60 seconds.');
     shutdown('frontend-timeout', 1);
@@ -459,7 +463,7 @@ async function main() {
   console.log('');
   log.hr();
   console.log(col(C.magenta + C.bold, `\n  ${SYM.mark}  Luminary OS is running!\n`));
-  console.log(col(C.cyan + C.bold, `  App      ${SYM.arrow}  http://localhost:${FRONTEND_PORT}`));
+  console.log(col(C.cyan + C.bold, `  App      ${SYM.arrow}  ${frontendUrl}`));
   console.log(col(C.magenta,       `  API      ${SYM.arrow}  http://localhost:${BACKEND_PORT}`));
   console.log(col(C.dim,           `  Health   ${SYM.arrow}  http://localhost:${BACKEND_PORT}/api/health`));
   console.log(col(C.dim,           `  Router   ${SYM.arrow}  POST /api/router/send`));
@@ -469,7 +473,7 @@ async function main() {
   console.log('');
 
   // 8. Open browser
-  openBrowser(`http://localhost:${FRONTEND_PORT}`);
+  openBrowser(frontendUrl);
 
   // 9. Shutdown signals — clean stop, exit code 0
   process.on('SIGINT',  () => shutdown('SIGINT (Ctrl+C)', 0));

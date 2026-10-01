@@ -101,8 +101,16 @@ export class NoteAskService {
       throw new NotesError('Lumen returned an empty answer — the note was left unchanged.', 502);
     }
 
+    // Research can take minutes. Another editor or tool may have saved
+    // newer text while we awaited it; never overwrite that work with the
+    // old snapshot or insert an answer grounded in outdated context.
+    const current = notesService.get(noteId);
+    if (current.content !== note.content) {
+      throw new NotesError('The note changed while Lumen was researching. Your edits were preserved; select the passage again and retry.', 409);
+    }
+
     const updated = notesService.update(noteId, {
-      content: spliceAnswer(note.content, insertAt, answer),
+      content: spliceAnswer(current.content, insertAt, answer),
     });
     logger.info(`Inserted a ${answer.length} char answer into note ${noteId}`);
 

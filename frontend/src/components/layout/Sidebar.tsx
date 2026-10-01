@@ -6,6 +6,8 @@ import { useTheme } from '@/theme/useTheme';
 import { useChatContext } from '@/store/ChatContext';
 import type { NavPage } from '@/types';
 import clsx from 'clsx';
+import BrandLogo from '@/components/ui/BrandLogo';
+import { APP_VERSION } from '@/lib/brand';
 
 const NAV_ITEMS = [
   { id: 'dashboard' as NavPage, label: 'Dashboard', Icon: LayoutDashboard },
@@ -81,11 +83,11 @@ export default function Sidebar({ page, setPage, collapsed, setCollapsed }: Side
           minHeight: 64,
         }}
       >
-        <img src="/brand/lantern-logo.png" alt="Luminary" className="flex-shrink-0" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+        <BrandLogo size={32} className="flex-shrink-0" />
         {!collapsed && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }}>
             <div className="font-bold text-[15px] tracking-tight" style={{ color: 'var(--lum-aurora)' }}>Luminary</div>
-            <div className="text-[10px] font-medium tracking-widest uppercase" style={{ color: 'var(--lum-text-muted)' }}>OS v0.1.0</div>
+            <div className="text-[10px] font-medium tracking-widest uppercase" style={{ color: 'var(--lum-text-muted)' }}>OS v{APP_VERSION}</div>
           </motion.div>
         )}
       </div>

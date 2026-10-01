@@ -22,14 +22,15 @@ const STATUS_BADGE: Record<AgentStatus, 'accent'|'cyan'|'default'|'error'> = {
 };
 
 export default function Agents() {
-  const { agents, loading, error, activate, pause, setModel } = useAgents();
+  const { agents, loading, error, activate, pause, setModel, clearError } = useAgents();
   const { models } = useModels();
   const [theme] = useTheme();
   const [savingAgent, setSavingAgent] = useState<string | null>(null);
+  const [busyAgent, setBusyAgent] = useState<string | null>(null);
 
   // Agents can only be assigned models that can actually run —
   // Ollama models and GGUF files when the runtime is available.
-  const runnableModels = models.filter(m => m.runnable !== false);
+  const runnableModels = models.filter(m => m.runnable !== false && m.type !== 'embedding');
   const modelsAvailable = runnableModels.length > 0;
   /** Display name for an assigned model id (GGUF ids are file paths). */
   const modelLabel = (id: string) => models.find(m => m.id === id)?.name ?? (id.split(/[\\/]/).pop() ?? id);
@@ -38,6 +39,12 @@ export default function Agents() {
     if (!model) return;
     setSavingAgent(agentId);
     try { await setModel(agentId, model); } finally { setSavingAgent(null); }
+  };
+
+  const runAgentAction = async (id: string, action: (agentId: string) => Promise<void>) => {
+    if (busyAgent) return;
+    setBusyAgent(id);
+    try { await action(id); } finally { setBusyAgent(null); }
   };
 
   return (
@@ -49,7 +56,7 @@ export default function Agents() {
             className="flex items-center gap-2.5 px-4 py-3 mb-5 lum-glass" style={{ borderColor: 'rgba(232,116,107,0.35)' }}>
             <AlertTriangle size={14} color="var(--lum-danger)" style={{ flexShrink: 0 }} />
             <div className="text-[12.5px] leading-relaxed" style={{ color: 'var(--lum-danger)', flex: 1 }}>{error}</div>
-            <X size={13} color="var(--lum-danger)" style={{ cursor: 'pointer' }} />
+            <button onClick={clearError} title="Dismiss" style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }}><X size={13} color="var(--lum-danger)" /></button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -154,8 +161,8 @@ export default function Agents() {
                 </div>
                 <div className="flex items-center gap-2 px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                   {agent.status !== 'idle'
-                    ? <Button variant="danger"  size="sm" onClick={() => pause(agent.id)}><Pause size={11} /> Pause</Button>
-                    : <Button variant="success" size="sm" onClick={() => activate(agent.id)}><Play size={11} /> Activate</Button>
+                    ? <Button variant="danger"  size="sm" disabled={busyAgent !== null} onClick={() => void runAgentAction(agent.id, pause)}><Pause size={11} /> Pause</Button>
+                    : <Button variant="success" size="sm" disabled={busyAgent !== null} onClick={() => void runAgentAction(agent.id, activate)}><Play size={11} /> Activate</Button>
                   }
                   <span className="text-[11px] ml-auto truncate" style={{ color: 'var(--lum-text-muted)', maxWidth: '60%' }}
                     title={agent.defaultModel || undefined}>

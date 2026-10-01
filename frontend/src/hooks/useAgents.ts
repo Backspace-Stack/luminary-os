@@ -23,13 +23,23 @@ export function useAgents() {
   useEffect(() => { refresh(); }, [refresh]);
 
   const activate = async (id: string) => {
-    const updated = await agentsApi.activate(id);
-    setAgents(prev => prev.map(a => a.id === id ? { ...a, ...updated } : a));
+    try {
+      const updated = await agentsApi.activate(id);
+      setAgents(prev => prev.map(a => a.id === id ? { ...a, ...updated } : a));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to activate agent');
+    }
   };
 
   const pause = async (id: string) => {
-    const updated = await agentsApi.pause(id);
-    setAgents(prev => prev.map(a => a.id === id ? { ...a, ...updated } : a));
+    try {
+      const updated = await agentsApi.pause(id);
+      setAgents(prev => prev.map(a => a.id === id ? { ...a, ...updated } : a));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to pause agent');
+    }
   };
 
   /** Assign a real installed model to an agent (persisted on the backend). */
@@ -38,10 +48,12 @@ export function useAgents() {
       const updated = await agentsApi.setModel(id, model);
       setAgents(prev => prev.map(a => a.id === id ? { ...a, ...updated } : a));
       setError(null);
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to assign model');
+      return false;
     }
   };
 
-  return { agents, loading, error, activate, pause, setModel, refresh };
+  return { agents, loading, error, activate, pause, setModel, refresh, clearError: () => setError(null) };
 }

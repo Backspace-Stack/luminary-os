@@ -2,6 +2,12 @@
 
 ## 0.1.0 — prepared locally, not released
 
+- Use the original logo consistently across app branding, favicon and README; derive displayed version and Node requirement from package metadata.
+- Preserve note edits across autosave/research failures and page switches; reject stale research inserts rather than overwrite newer text.
+- Keep failed memory/device/model-assignment actions visible, and reconcile mounted chat state after history deletion.
+- Target Stop at the generating conversation and keep failed disk writes from publishing unsaved conversation/settings/assignment state.
+- Align the managed browser address, backend origin guard and frontend port; preserve validated local overrides and prevent Vite port drift.
+- Add model-free CRUD, persistence, conflict and frontend state regression coverage; document verification boundaries in [docs/testing.md](docs/testing.md).
 - Load non-dashboard pages and syntax highlighting on demand, preserving the UI and chat state; provide page retry and readable code fallbacks.
 - Support authenticated live model notifications with reconnect, token rotation, bounded SSE frames and explicit connection status.
 - Launch Windows npm/Vite/tsx through their JavaScript entrypoints rather than a generic shell; preserve literal arguments and paths with spaces.

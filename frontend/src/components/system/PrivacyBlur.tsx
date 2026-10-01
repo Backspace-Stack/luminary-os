@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
+import BrandLogo from '@/components/ui/BrandLogo';
 import { usePrefs } from '@/lib/prefs';
 
 export default function PrivacyBlur() {
@@ -42,8 +42,8 @@ export default function PrivacyBlur() {
         >
           <div className="flex items-center gap-2.5" style={{ opacity: 0.75 }}>
             <div className="flex items-center justify-center rounded-[10px]"
-                 style={{ width: 30, height: 30, background: 'var(--lum-accent-grad)', boxShadow: '0 0 20px rgb(var(--lum-accent-rgb) / 0.4)' }}>
-              <Sparkles size={14} color="#fff" />
+                 style={{ width: 30, height: 30, background: 'var(--lum-glass-strong)', boxShadow: '0 0 20px rgb(var(--lum-accent-rgb) / 0.4)' }}>
+              <BrandLogo size={26} decorative />
             </div>
             <span className="text-[13px] font-medium" style={{ color: 'var(--lum-text-secondary)' }}>
               Luminary is frosted — click to return

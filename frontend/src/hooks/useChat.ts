@@ -70,6 +70,7 @@ export function useChat() {
   const agentIdRef = useRef<string>(DEFAULT_AGENT_ID);
   agentIdRef.current = agentId;
   const abortRef = useRef<AbortController | null>(null);
+  const generationIdRef = useRef<string | null>(null);
 
   // ── Loading ─────────────────────────────────────────────────
 
@@ -122,6 +123,7 @@ export function useChat() {
    * had since gained real messages.
    */
   const newConversation = useCallback(() => {
+    activeIdRef.current = null;
     setActiveId(null);
     setMessages([]);
     setPending(null);
@@ -130,6 +132,33 @@ export function useChat() {
     // The selected mode (Chat / Agent / Deep Research) carries over to
     // the fresh prompt — it is applied when the conversation is created.
   }, []);
+
+  /** Reflect a completed history wipe without remounting ChatProvider. */
+  const resetHistory = useCallback(() => {
+    abortRef.current?.abort();
+    generationIdRef.current = null;
+    activeIdRef.current = null;
+    setActiveId(null);
+    setConversations([]);
+    setMessages([]);
+    setPending(null);
+    setToolLog([]);
+    setToolActivity(null);
+    setStreamMeta(null);
+    setThinking('');
+    setStreaming(false);
+    setError(null);
+  }, []);
+
+  /** Reconcile a partial history wipe while retaining surviving chats. */
+  const reconcileHistory = useCallback(async () => {
+    const list = await refreshList();
+    if (generationIdRef.current && !list.some(item => item.id === generationIdRef.current)) {
+      abortRef.current?.abort();
+    }
+    const visible = activeIdRef.current;
+    if (visible && !list.some(item => item.id === visible)) newConversation();
+  }, [refreshList, newConversation]);
 
   /** Switch which agent (Chat / Agent / Deep Research) this conversation uses. */
   const setMode = useCallback(async (nextAgentId: string) => {
@@ -177,6 +206,7 @@ export function useChat() {
     setThinking('');
     const controller = new AbortController();
     abortRef.current = controller;
+    generationIdRef.current = conversationId;
 
     /** Apply a message-list update only while this conversation is visible. */
     const patch = (fn: (prev: ChatMessage[]) => ChatMessage[]) => {
@@ -289,11 +319,14 @@ export function useChat() {
         if (id) patch((prev) => prev.filter((m) => m.id !== id || m.content.length > 0));
       }
     } finally {
-      setStreaming(false);
-      setStreamMeta(null);
-      setToolActivity(null);
-      setThinking('');
-      abortRef.current = null;
+      if (abortRef.current === controller) {
+        setStreaming(false);
+        setStreamMeta(null);
+        setToolActivity(null);
+        setThinking('');
+        abortRef.current = null;
+        generationIdRef.current = null;
+      }
       refreshList().catch(() => { /* list refresh is best-effort */ });
     }
   }, [refreshList]);
@@ -327,7 +360,7 @@ export function useChat() {
   }, [streaming, runGeneration]);
 
   const stop = useCallback(async () => {
-    const id = activeIdRef.current;
+    const id = generationIdRef.current;
     if (!id) return;
     try {
       await chatApi.stop(id);
@@ -365,19 +398,21 @@ export function useChat() {
   /** Drop a paused turn without approving anything — nothing was done. */
   const cancelPending = useCallback(async () => {
     const id = activeIdRef.current;
-    if (!id || !pending) return;
+    if (!id || !pending) return false;
     try {
       await chatApi.deny(id, pending.items.map(item => item.id));
       setPending(null);
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not revoke pending actions.');
+      return false;
     }
   }, [pending]);
 
   return {
     conversations, activeId, messages, agentId, pending, loading, streaming, streamMeta, toolActivity, toolLog, thinking, error,
     draft, setDraft,
-    openConversation, newConversation, deleteConversation,
+    openConversation, newConversation, deleteConversation, resetHistory, reconcileHistory,
     send, stop, regenerate, continueGeneration, setMode, approve, cancelPending,
     clearError: () => setError(null),
   };

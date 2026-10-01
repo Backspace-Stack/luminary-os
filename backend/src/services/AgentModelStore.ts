@@ -15,6 +15,14 @@ const logger = Logger.scope('AgentModelStore');
 
 type AssignmentMap = Record<string, string>;
 
+export class AgentModelStoreError extends Error {
+  readonly statusCode = 503;
+  constructor() {
+    super('Agent model assignment could not be saved. Check the data folder and try again.');
+    this.name = 'AgentModelStoreError';
+  }
+}
+
 export class AgentModelStore {
   private store = new JsonStore<AssignmentMap>('agent-models.json', {});
   private assignments: AssignmentMap;
@@ -29,14 +37,17 @@ export class AgentModelStore {
   }
 
   set(agentId: string, model: string): void {
-    this.assignments[agentId] = model;
-    this.store.save(this.assignments);
+    const next = { ...this.assignments, [agentId]: model };
+    if (!this.store.save(next)) throw new AgentModelStoreError();
+    this.assignments = next;
     logger.info(`Model assigned: ${agentId} → ${model}`);
   }
 
   clear(agentId: string): void {
-    delete this.assignments[agentId];
-    this.store.save(this.assignments);
+    const next = { ...this.assignments };
+    delete next[agentId];
+    if (!this.store.save(next)) throw new AgentModelStoreError();
+    this.assignments = next;
   }
 
   all(): AssignmentMap {

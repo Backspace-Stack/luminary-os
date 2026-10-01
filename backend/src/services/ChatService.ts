@@ -133,6 +133,7 @@ export class ChatService {
   private store = new JsonStore<StoredConversation[]>('conversations.json', []);
   private conversations: StoredConversation[];
   private activeGenerations = new Map<string, AbortController>();
+  private generationDrafts = new Map<string, { original: StoredConversation; working: StoredConversation }>();
 
   constructor() {
     this.conversations = this.store.load();
@@ -188,16 +189,16 @@ export class ChatService {
       // switch this before or after the first message.
       agentId: 'conversation-agent',
     };
+    this.persist([...this.conversations, conv]);
     this.conversations.push(conv);
-    this.persist();
     return conv;
   }
 
   rename(id: string, title: string): StoredConversation {
     const conv = this.get(id);
-    conv.title = title.trim() || conv.title;
-    conv.updatedAt = new Date().toISOString();
-    this.persist();
+    const updated = { ...conv, title: title.trim() || conv.title, updatedAt: new Date().toISOString() };
+    this.persist(this.conversations.map(c => c.id === id ? updated : c));
+    Object.assign(conv, updated);
     return conv;
   }
 
@@ -207,9 +208,9 @@ export class ChatService {
     if (!agentRegistry.findById(agentId)) {
       throw new ChatError(`Agent "${agentId}" not found`, 404);
     }
-    conv.agentId = agentId;
-    conv.updatedAt = new Date().toISOString();
-    this.persist();
+    const updated = { ...conv, agentId, updatedAt: new Date().toISOString() };
+    this.persist(this.conversations.map(c => c.id === id ? updated : c));
+    Object.assign(conv, updated);
     return conv;
   }
 
@@ -223,7 +224,9 @@ export class ChatService {
   historyTurns(conversationId: string): ChatTurn[] {
     let conv: StoredConversation;
     try {
-      conv = this.get(conversationId);
+      // Agents need the current turn while it is being generated, but
+      // public GET/list must expose only successfully persisted history.
+      conv = this.generationDrafts.get(conversationId)?.working ?? this.get(conversationId);
     } catch {
       return [];
     }
@@ -234,19 +237,19 @@ export class ChatService {
   }
 
   remove(id: string): void {
-    this.stop(id);
-    const before = this.conversations.length;
-    this.conversations = this.conversations.filter((c) => c.id !== id);
-    if (this.conversations.length === before) {
+    const remaining = this.conversations.filter((c) => c.id !== id);
+    if (this.conversations.length === remaining.length) {
       throw new ChatError(`Conversation "${id}" not found`, 404);
     }
-    this.persist();
+    this.persist(remaining);
+    this.stop(id);
+    this.conversations = remaining;
   }
 
   // ── Generation ──────────────────────────────────────────────
 
   isGenerating(conversationId: string): boolean {
-    return this.activeGenerations.has(conversationId);
+    return this.generationDrafts.has(conversationId) || this.activeGenerations.has(conversationId);
   }
 
   /** Abort an in-flight generation for a conversation. */
@@ -264,10 +267,23 @@ export class ChatService {
    * propagate so the route can report them honestly.
    */
   async generate(params: GenerateParams, events: StreamEvents): Promise<void> {
-    const conv = this.get(params.conversationId);
-    if (this.isGenerating(conv.id)) {
+    const original = structuredClone(this.get(params.conversationId));
+    if (this.isGenerating(original.id)) {
       throw new ChatError('A response is already being generated for this conversation', 409);
     }
+    const conv = structuredClone(original);
+    const controller = new AbortController();
+    this.generationDrafts.set(conv.id, { original, working: conv });
+    this.activeGenerations.set(conv.id, controller);
+    try {
+      await this.generateTurn(conv, params, events, controller);
+    } finally {
+      this.generationDrafts.delete(conv.id);
+      this.activeGenerations.delete(conv.id);
+    }
+  }
+
+  private async generateTurn(conv: StoredConversation, params: GenerateParams, events: StreamEvents, controller: AbortController): Promise<void> {
 
     // ── /remember — the ONE shared interception point ──────────────
     // Both the dashboard (POST /api/chat/generate) and the DiscordBridge
@@ -334,7 +350,9 @@ export class ChatService {
     // 3. Resolve the model and its owning provider — Ollama tags and
     //    GGUF file paths both work; the model must actually be runnable.
     const modelId = await agent.resolveModel();
+    if (controller.signal.aborted) throw new ChatError('Generation cancelled before execution.', 409);
     const owner = await modelService.findOwner(modelId);
+    if (controller.signal.aborted) throw new ChatError('Generation cancelled before execution.', 409);
     if (!owner) {
       throw new ChatError(
         `Model "${modelId}" is not available from any provider. Check the Models page.`, 404);
@@ -384,12 +402,11 @@ export class ChatService {
     };
     if (!usesTools) ensureMeta();
 
-    const controller = new AbortController();
-    this.activeGenerations.set(conv.id, controller);
     const started = Date.now();
 
     let response: AgentResponse;
     try {
+      if (controller.signal.aborted) throw new ChatError('Generation cancelled before execution.', 409);
       response = await agent.execute(
         {
           id: randomUUID(),
@@ -555,12 +572,24 @@ export class ChatService {
   }
 
   private touch(conv: StoredConversation): void {
-    conv.updatedAt = new Date().toISOString();
-    this.persist();
+    // Stage one conversation against the latest list. Failed writes do
+    // not publish its draft or roll back another conversation's edits.
+    // A deleted conversation must stay deleted even if its stream ends.
+    const current = this.get(conv.id);
+    const original = this.generationDrafts.get(conv.id)?.original;
+    const updated = { ...conv, updatedAt: new Date().toISOString() };
+    if (original) {
+      if (current.title !== original.title) updated.title = current.title;
+      if (current.agentId !== original.agentId) updated.agentId = current.agentId;
+    }
+    this.persist(this.conversations.map(c => c.id === conv.id ? updated : c));
+    Object.assign(current, updated);
   }
 
-  private persist(): void {
-    this.store.save(this.conversations);
+  private persist(conversations = this.conversations): void {
+    if (!this.store.save(conversations)) {
+      throw new ChatError('Conversation changes could not be saved. Check the data folder and try again.', 503);
+    }
   }
 }
 

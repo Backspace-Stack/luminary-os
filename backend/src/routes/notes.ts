@@ -14,10 +14,18 @@
 // ============================================================
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { notesService } from '../services/NotesService';
+import { notesService, NotesError } from '../services/NotesService';
 import { noteAskService } from '../services/NoteAskService';
 
 const router = Router();
+
+function validateNoteFields(body: Record<string, unknown>): void {
+  for (const field of ['title', 'content']) {
+    if (body[field] !== undefined && typeof body[field] !== 'string') {
+      throw new NotesError(`"${field}" must be a string.`);
+    }
+  }
+}
 
 /** GET /api/notes */
 router.get('/', (_req: Request, res: Response, next: NextFunction) => {
@@ -30,6 +38,7 @@ router.get('/', (_req: Request, res: Response, next: NextFunction) => {
 /** POST /api/notes — body { title?, content? } */
 router.post('/', (req: Request, res: Response, next: NextFunction) => {
   try {
+    validateNoteFields(req.body ?? {});
     const { title, content } = req.body ?? {};
     const note = notesService.create(
       typeof title === 'string' ? title : undefined,
@@ -49,6 +58,7 @@ router.get('/:id', (req: Request, res: Response, next: NextFunction) => {
 /** PATCH /api/notes/:id — body { title?, content? } */
 router.patch('/:id', (req: Request, res: Response, next: NextFunction) => {
   try {
+    validateNoteFields(req.body ?? {});
     const { title, content } = req.body ?? {};
     const note = notesService.update(req.params.id, {
       ...(typeof title === 'string' ? { title } : {}),

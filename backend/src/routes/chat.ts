@@ -15,11 +15,19 @@
 // ============================================================
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { chatService, type GenerateMode } from '../services/ChatService';
+import { chatService, ChatError, type GenerateMode } from '../services/ChatService';
 import { analyticsService, type AnalyticsRange } from '../services/AnalyticsService';
 import { denyPendingConfirmations } from '../agents/BaseAgent';
 
 const router = Router();
+
+function validateConversationFields(body: Record<string, unknown>): void {
+  for (const field of ['title', 'agentId']) {
+    if (body[field] !== undefined && typeof body[field] !== 'string') {
+      throw new ChatError(`"${field}" must be a string.`);
+    }
+  }
+}
 
 /** Revoke approval tokens rather than merely hiding the UI prompt. */
 router.post('/conversations/:id/deny', (req: Request, res: Response, next: NextFunction) => {
@@ -57,6 +65,7 @@ router.get('/conversations', (_req: Request, res: Response, next: NextFunction) 
 /** POST /api/chat/conversations — create a new conversation. */
 router.post('/conversations', (req: Request, res: Response, next: NextFunction) => {
   try {
+    validateConversationFields(req.body ?? {});
     const conv = chatService.create(req.body?.title);
     res.status(201).json({ success: true, data: conv });
   } catch (err) { next(err); }
@@ -72,6 +81,7 @@ router.get('/conversations/:id', (req: Request, res: Response, next: NextFunctio
 /** PATCH /api/chat/conversations/:id — rename and/or switch mode (agentId). */
 router.patch('/conversations/:id', (req: Request, res: Response, next: NextFunction) => {
   try {
+    validateConversationFields(req.body ?? {});
     let conv = chatService.get(req.params.id);
     if (typeof req.body?.agentId === 'string') {
       conv = chatService.setAgentId(req.params.id, req.body.agentId);

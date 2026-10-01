@@ -196,6 +196,7 @@ export default function NotesView({ pro, onClose, confirmDelete }: NotesViewProp
         {active ? (
           <input
             value={active.title}
+            readOnly={Boolean(asking)}
             onChange={(e) => edit(active.id, { title: e.target.value })}
             placeholder="Untitled note"
             className="text-[13.5px] font-semibold flex-1 min-w-0"
@@ -226,6 +227,7 @@ export default function NotesView({ pro, onClose, confirmDelete }: NotesViewProp
           <textarea
             ref={editorRef}
             value={active.content}
+            readOnly={Boolean(asking)}
             onChange={(e) => { edit(active.id, { content: e.target.value }); setSelection(null); }}
             onSelect={readSelection}
             onMouseUp={readSelection}

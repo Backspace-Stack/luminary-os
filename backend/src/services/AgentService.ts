@@ -16,6 +16,13 @@ import { randomUUID } from 'crypto';
 
 const logger = Logger.scope('AgentService');
 
+export class AgentError extends Error {
+  constructor(message: string, public readonly statusCode = 400) {
+    super(message);
+    this.name = 'AgentError';
+  }
+}
+
 export class AgentService {
 
   /** Return metadata for all registered agents. */
@@ -31,7 +38,7 @@ export class AgentService {
   /** Activate an agent (set status to 'active'). */
   activateAgent(id: string): AgentMetadata {
     const agent = agentRegistry.findById(id);
-    if (!agent) throw new Error(`Agent "${id}" not found`);
+    if (!agent) throw new AgentError(`Agent "${id}" not found`, 404);
     agent.setStatus('active');
     logger.info(`Agent activated: ${id}`);
     return agent.getMetadata();
@@ -40,7 +47,7 @@ export class AgentService {
   /** Pause an agent (set status to 'idle'). */
   pauseAgent(id: string): AgentMetadata {
     const agent = agentRegistry.findById(id);
-    if (!agent) throw new Error(`Agent "${id}" not found`);
+    if (!agent) throw new AgentError(`Agent "${id}" not found`, 404);
     agent.setStatus('idle');
     logger.info(`Agent paused: ${id}`);
     return agent.getMetadata();
@@ -52,17 +59,20 @@ export class AgentService {
    */
   async setAgentModel(id: string, model: string): Promise<AgentMetadata> {
     const agent = agentRegistry.findById(id);
-    if (!agent) throw new Error(`Agent "${id}" not found`);
+    if (!agent) throw new AgentError(`Agent "${id}" not found`, 404);
 
     const installed = await modelService.listAllModels();
     const found = installed.find((m) => m.id === model) ?? installed.find((m) => m.name === model);
     if (!found) {
-      throw new Error(
+      throw new AgentError(
         `Model "${model}" is not installed. Install it from the Models page first.`
       );
     }
+    if (found.type === 'embedding') {
+      throw new AgentError(`Model "${found.name}" only creates embeddings and cannot answer chat requests.`);
+    }
     if (found.runnable === false) {
-      throw new Error(
+      throw new AgentError(
         `Model "${found.name}" cannot run: the GGUF runtime is unavailable on this machine. ` +
         'Assign an Ollama model instead.'
       );

@@ -25,10 +25,10 @@ router.get('/', (_req: Request, res: Response, next: NextFunction) => {
 router.put('/gguf-folder', (req: Request, res: Response, next: NextFunction) => {
   try {
     const raw = req.body?.path;
-    if (raw !== null && raw !== undefined && typeof raw !== 'string') {
+    if (raw === undefined || (raw !== null && typeof raw !== 'string')) {
       throw new SettingsError('"path" must be a string or null');
     }
-    const settings = settingsService.setGgufFolder(raw ?? null);
+    const settings = settingsService.setGgufFolder(raw);
     // Folder set changed: re-point the live watcher and tell the UI
     ggufWatcher.start(ggufFolders());
     eventBus.emit(EVENTS.MODELS_CHANGED, { source: 'settings' }, 'SettingsRoute');

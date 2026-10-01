@@ -24,8 +24,9 @@ const C = {
 
 export default function ModelPicker({ agentId, minimal = false }: { agentId: string; minimal?: boolean }) {
   const { models, loading } = useModels();
-  const { agents, setModel } = useAgents();
+  const { agents, setModel, error, clearError } = useAgents();
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   const current = agents.find((a) => a.id === agentId)?.defaultModel ?? null;
@@ -40,12 +41,18 @@ export default function ModelPicker({ agentId, minimal = false }: { agentId: str
     return () => document.removeEventListener('mousedown', onDown);
   }, [open]);
 
-  const pick = (id: string) => { setModel(agentId, id); setOpen(false); };
+  const pick = async (id: string) => {
+    if (saving) return;
+    setSaving(true);
+    try { if (await setModel(agentId, id)) setOpen(false); }
+    finally { setSaving(false); }
+  };
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => { clearError(); setOpen((o) => !o); }}
+        disabled={saving}
         title="Choose the model this agent runs"
         style={{
           display: 'flex', alignItems: 'center', gap: 7,
@@ -77,6 +84,7 @@ export default function ModelPicker({ agentId, minimal = false }: { agentId: str
           <div style={{ fontSize: 10.5, color: C.mute, padding: '4px 10px 6px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
             Model · {options.length} available
           </div>
+          {error && <div role="alert" style={{ padding: '6px 10px', fontSize: 12, color: 'var(--lum-danger)' }}>{error}</div>}
           {options.length === 0 && (
             <div style={{ padding: '10px 12px', fontSize: 12, color: C.mute }}>
               {loading ? 'Loading…' : 'No runnable models installed.'}
@@ -88,6 +96,7 @@ export default function ModelPicker({ agentId, minimal = false }: { agentId: str
               <button
                 key={`${m.providerId}:${m.id}`}
                 onClick={() => pick(m.id)}
+                disabled={saving}
                 role="option"
                 aria-selected={active}
                 style={{

@@ -3,7 +3,7 @@
 // reveal the desktop. Pure CSS; unmounts itself when done.
 
 import { useEffect, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import BrandLogo from '@/components/ui/BrandLogo';
 import { getTheme } from '@/theme/engine';
 
 export default function BootVeil() {
@@ -36,11 +36,11 @@ export default function BootVeil() {
           className="flex items-center justify-center rounded-2xl"
           style={{
             width: 52, height: 52,
-            background: 'var(--lum-accent-grad)',
+            background: 'var(--lum-glass-strong)',
             boxShadow: '0 0 44px rgb(var(--lum-accent-rgb) / 0.55), inset 0 1px 0 rgba(255,255,255,0.35)',
           }}
         >
-          <Sparkles size={22} color="#fff" />
+          <BrandLogo size={42} decorative />
         </div>
         <div className="text-[19px] font-bold tracking-tight" style={{ color: 'var(--lum-aurora)' }}>
           Luminary <span style={{ color: 'var(--lum-text-muted)', fontWeight: 500 }}>OS</span>

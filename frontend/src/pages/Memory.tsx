@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Search, Plus, Tag, FileText, BookOpen, Edit3, Trash2, X, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Tag, FileText, BookOpen, Edit3, Trash2, X, AlertTriangle, RefreshCw } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Card, Badge, Button, Segmented } from '@/components/ui';
 import { useMemory } from '@/hooks/useMemory';
 import { useAgents } from '@/hooks/useAgents';
 import { useTheme } from '@/theme/useTheme';
 import { shade } from '@/theme/engine';
+import { usePrefs } from '@/lib/prefs';
 import type { MemoryEntry, MemoryType, Importance } from '@/types';
 
 type Filter = MemoryType | 'all';
@@ -164,10 +165,19 @@ function MemoryModal({
 export default function Memory() {
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
-  const { memories, loading, remove, create, update } = useMemory();
+  const { memories, loading, error, remove, create, update, refresh, clearError } = useMemory();
+  const [prefs] = usePrefs();
+  const [deleting, setDeleting] = useState<string | null>(null);
   const { agents } = useAgents();
   const [theme] = useTheme();
   const [modal, setModal] = useState<{ editing: MemoryEntry | null } | null>(null);
+
+  const deleteMemory = async (memory: MemoryEntry) => {
+    if (deleting) return;
+    if (prefs.confirmDelete && !window.confirm('Delete this memory permanently?')) return;
+    setDeleting(memory.id);
+    try { await remove(memory.id); } finally { setDeleting(null); }
+  };
 
   const saveMemory = async (draft: MemoryDraft) => {
     const agentName = agents.find(a => a.id === draft.agentId)?.name ?? draft.agentId;
@@ -193,6 +203,14 @@ export default function Memory() {
   return (
     <div className="flex-1 overflow-y-auto">
     <div className="mx-auto space-y-5" style={{ maxWidth: 1280, padding: 'clamp(16px, 2.4vw, 28px)' }}>
+      {error && (
+        <div role="alert" className="flex items-center gap-2.5 px-4 py-3 lum-glass" style={{ borderColor: 'rgba(232,116,107,0.35)' }}>
+          <AlertTriangle size={14} color="var(--lum-danger)" />
+          <p className="flex-1 text-[12.5px]" style={{ color: 'var(--lum-danger)' }}>{error}</p>
+          <Button variant="ghost" size="sm" onClick={refresh} disabled={loading}><RefreshCw size={11} /> Retry</Button>
+          <button onClick={clearError} title="Dismiss" style={{ color: 'var(--lum-danger)', background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={13} /></button>
+        </div>
+      )}
       {/* Controls */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex gap-2 flex-wrap">
@@ -231,7 +249,7 @@ export default function Memory() {
 
       {loading && <div className="text-[12px] p-4" style={{ color:'var(--lum-text-muted)' }}>Loading memories…</div>}
 
-      {!loading && filtered.length === 0 && (
+      {!loading && !error && filtered.length === 0 && (
         <Card style={{ padding: '40px 24px' }}>
           <div className="flex flex-col items-center gap-3 text-center">
             <FileText size={26} style={{ color: 'var(--lum-text-muted)', opacity: 0.5 }} />
@@ -273,7 +291,7 @@ export default function Memory() {
                     </div>
                     <div className="flex gap-1.5 ml-auto">
                       <Button variant="ghost" size="sm" onClick={() => setModal({ editing: mem })}><Edit3 size={11} /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => remove(mem.id)}><Trash2 size={11} /></Button>
+                      <Button variant="ghost" size="sm" title="Delete memory" disabled={deleting !== null} onClick={() => void deleteMemory(mem)}><Trash2 size={11} /></Button>
                     </div>
                   </div>
                 </div>

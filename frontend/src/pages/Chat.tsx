@@ -19,6 +19,7 @@ import ToolActivityTable from '@/components/chat/ToolActivityTable';
 import UsageAnalytics from '@/components/chat/UsageAnalytics';
 import ModelPicker from '@/components/chat/ModelPicker';
 import NotesView from '@/components/notes/NotesView';
+import BrandLogo from '@/components/ui/BrandLogo';
 
 /** Chat = ConversationAgent, Agent = CodingAgent, Deep Research = ResearchAgent. */
 const MODES = [
@@ -242,10 +243,11 @@ export default function Chat() {
     setMode(v === 'agent' ? 'coding-agent' : 'conversation-agent');
   };
 
-  const handleCancelPending = () => {
-    cancelPending();
-    setCancelledNotice(true);
-    window.setTimeout(() => setCancelledNotice(false), 4000);
+  const handleCancelPending = async () => {
+    if (await cancelPending()) {
+      setCancelledNotice(true);
+      window.setTimeout(() => setCancelledNotice(false), 4000);
+    }
   };
 
   const active = conversations.find(c => c.id === activeId) ?? null;
@@ -441,7 +443,7 @@ export default function Chat() {
       {/* Professional wordmark — the rail is the only chrome left */}
       {pro && (
         <div className="flex items-center gap-2 px-4 flex-shrink-0" style={{ height: 50, borderBottom: `1px solid ${PRO.borderSoft}` }}>
-          <img src="/brand/lantern-logo.png" alt="Luminary" style={{ width: 26, height: 26, objectFit: 'contain' }} />
+          <BrandLogo size={26} />
           <span className="text-[13px] font-semibold tracking-tight flex-1" style={{ color: PRO.text }}>Luminary</span>
           {!narrow && (
             <button
@@ -847,7 +849,7 @@ export default function Chat() {
                 className="flex h-full flex-col items-center justify-center px-6"
               >
                 <div className="flex flex-col items-center mb-7">
-                  <img src="/brand/lantern-logo.png" alt="Luminary" style={{ width: 112, height: 112, objectFit: 'contain' }} />
+                  <BrandLogo size={112} />
                   <h1 className="mt-3 text-center text-[25px] font-semibold tracking-tight" style={{ color: PRO.text }}>
                     {welcomePrompt}
                   </h1>

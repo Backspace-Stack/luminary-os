@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Sparkles, FolderOpen, Check, AlertTriangle, Search,
+  FolderOpen, Check, AlertTriangle, Search,
   SlidersHorizontal, Layers, Wifi, Shield, Info, Palette,
   Lock, Trash2, ArrowRight, KeyRound,
 } from 'lucide-react';
@@ -19,6 +19,9 @@ import { settingsApi, modelsApi, chatApi, integrationsApi, type IntegrationStatu
 import { usePrefs } from '@/lib/prefs';
 import { useTheme } from '@/theme/useTheme';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import BrandLogo from '@/components/ui/BrandLogo';
+import { APP_VERSION, NODE_REQUIREMENT } from '@/lib/brand';
+import { useChatContext } from '@/store/ChatContext';
 import type { NavPage, ProviderHealth } from '@/types';
 
 const TABS = ['general', 'appearance', 'models', 'network', 'integrations', 'security', 'about'] as const;
@@ -91,6 +94,7 @@ export default function Settings({ onLock, setPage }: SettingsProps) {
   const [prefs, setPrefs] = usePrefs();
   const [theme, setTheme] = useTheme();
   const narrow = useMediaQuery('(max-width: 860px)');
+  const { resetHistory, reconcileHistory, streaming } = useChatContext();
 
   // ── GGUF models folder (persisted on the backend) ─────────
   const [ggufInput,  setGgufInput]  = useState('');
@@ -111,15 +115,20 @@ export default function Settings({ onLock, setPage }: SettingsProps) {
   // ── Danger zone ────────────────────────────────────────────
   const [wipeArmed, setWipeArmed] = useState(false);
   const [wipeMsg, setWipeMsg] = useState<string | null>(null);
+  const [wipeBusy, setWipeBusy] = useState(false);
 
   // ── Integrations (API keys) ────────────────────────────────
   const [integrations, setIntegrations] = useState<IntegrationStatus[] | null>(null);
+  const [integrationsError, setIntegrationsError] = useState<string | null>(null);
   const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({});
   const [intBusy, setIntBusy] = useState<string | null>(null);
   const [intMsg, setIntMsg] = useState<Record<string, { kind: 'ok' | 'error'; text: string } | undefined>>({});
 
   useEffect(() => {
-    integrationsApi.list().then(setIntegrations).catch(() => setIntegrations([]));
+    integrationsApi.list().then(setIntegrations).catch((err) => {
+      setIntegrations([]);
+      setIntegrationsError(err instanceof Error ? err.message : 'Failed to load integrations');
+    });
   }, []);
 
   const saveKey = async (id: string) => {
@@ -146,7 +155,9 @@ export default function Settings({ onLock, setPage }: SettingsProps) {
       const updated = await integrationsApi.remove(id);
       setIntegrations((list) => (list ?? []).map((i) => (i.id === id ? updated : i)));
       setKeyDrafts((d) => ({ ...d, [id]: '' }));
-      setIntMsg((m) => ({ ...m, [id]: { kind: 'ok', text: `${updated.label} key removed — ${updated.unlocks} needs a key again.` } }));
+      setIntMsg((m) => ({ ...m, [id]: { kind: 'ok', text: updated.configured
+        ? `${updated.label} saved key removed — the environment key remains configured.`
+        : `${updated.label} key removed — ${updated.unlocks} needs a key again.` } }));
     } catch (err) {
       setIntMsg((m) => ({ ...m, [id]: { kind: 'error', text: err instanceof Error ? err.message : 'Failed to remove key' } }));
     } finally {
@@ -197,14 +208,24 @@ export default function Settings({ onLock, setPage }: SettingsProps) {
   };
 
   const wipeConversations = async () => {
+    if (wipeBusy || streaming) return;
     if (!wipeArmed) { setWipeArmed(true); return; }
     setWipeArmed(false);
+    setWipeBusy(true);
     try {
       const list = await chatApi.listConversations();
-      await Promise.all(list.map((c) => chatApi.deleteConversation(c.id)));
+      const results = await Promise.allSettled(list.map((c) => chatApi.deleteConversation(c.id)));
+      const failure = results.find((r) => r.status === 'rejected');
+      if (failure?.status === 'rejected') {
+        await reconcileHistory();
+        throw failure.reason;
+      }
+      resetHistory();
       setWipeMsg(`Deleted ${list.length} conversation${list.length === 1 ? '' : 's'}.`);
     } catch (err) {
       setWipeMsg(err instanceof Error ? err.message : 'Failed to clear conversations');
+    } finally {
+      setWipeBusy(false);
     }
     setTimeout(() => setWipeMsg(null), 4000);
   };
@@ -540,7 +561,9 @@ export default function Settings({ onLock, setPage }: SettingsProps) {
 
             {tab === 'integrations' && (
               <>
-                {integrations == null ? (
+                {integrationsError ? (
+                  <div role="alert" className="py-4 text-[12px]" style={{ color: 'var(--lum-danger)' }}>{integrationsError}</div>
+                ) : integrations == null ? (
                   <div className="py-4 text-[12px]" style={{ color: 'var(--lum-text-muted)' }}>Loading integrations…</div>
                 ) : integrations.length === 0 ? (
                   <div className="py-4 text-[12px]" style={{ color: 'var(--lum-text-muted)' }}>No integrations available.</div>
@@ -671,8 +694,9 @@ export default function Settings({ onLock, setPage }: SettingsProps) {
                     label="Clear All Conversations"
                     desc={wipeMsg ?? 'Permanently delete every chat conversation stored on this machine.'}
                   >
-                    <Button variant="danger" size="sm" onClick={wipeConversations}>
-                      <Trash2 size={12} /> {wipeArmed ? 'Click again to confirm' : 'Clear all'}
+                    <Button variant="danger" size="sm" onClick={wipeConversations} disabled={wipeBusy || streaming}
+                      title={streaming ? 'Stop the current generation before clearing history' : undefined}>
+                      <Trash2 size={12} /> {wipeBusy ? 'Clearing…' : wipeArmed ? 'Click again to confirm' : 'Clear all'}
                     </Button>
                   </SettingRow>
                 </div>
@@ -684,20 +708,20 @@ export default function Settings({ onLock, setPage }: SettingsProps) {
                 <Card reflect style={{ padding: 28, textAlign: 'center', marginBottom: 20 }}>
                   <div
                     className="flex items-center justify-center rounded-2xl mx-auto mb-4 lum-float"
-                    style={{ width: 56, height: 56, background: 'var(--lum-accent-grad)', boxShadow: '0 0 28px rgb(var(--lum-accent-rgb) / 0.45), inset 0 1px 0 rgba(255,255,255,0.3)' }}
+                    style={{ width: 56, height: 56, background: 'var(--lum-glass-strong)', boxShadow: '0 0 28px rgb(var(--lum-accent-rgb) / 0.45), inset 0 1px 0 rgba(255,255,255,0.3)' }}
                   >
-                    <Sparkles size={24} color="#fff" />
+                    <BrandLogo size={46} decorative />
                   </div>
                   <div className="text-[20px] font-bold mb-1 tracking-tight" style={{ color: 'var(--lum-aurora)' }}>Luminary OS</div>
-                  <div className="text-[13px] mb-4" style={{ color: 'var(--lum-text-muted)' }}>Version 0.1.0 · developer preview</div>
+                  <div className="text-[13px] mb-4" style={{ color: 'var(--lum-text-muted)' }}>Version {APP_VERSION} · developer preview</div>
                   <div className="text-[12px] leading-loose" style={{ color: 'var(--lum-text-secondary)' }}>
-                    An operating system interface for orchestrating<br />
-                    AI agents, local models, and connected devices.
+                    A local-first agent runtime and control interface<br />
+                    for conversations, models, memory, and notes.
                   </div>
                 </Card>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: 'Runtime',   value: 'Node.js 20.x' },
+                    { label: 'Node requirement', value: NODE_REQUIREMENT },
                     { label: 'Frontend',  value: 'React 18 + Vite' },
                     { label: 'Inference', value: 'Ollama + llama.cpp' },
                     { label: 'License',   value: 'MIT' },
