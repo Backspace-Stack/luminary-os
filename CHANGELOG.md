@@ -2,6 +2,7 @@
 
 ## 0.1.0 — developer preview
 
+- Accept Windows short-name sandbox roots while preserving protected-file and junction-escape checks; cover short-name reads, writes and folder traversal with a regression test.
 - Use the original logo consistently across app branding, favicon and README; derive displayed version and Node requirement from package metadata.
 - Preserve note edits across autosave/research failures and page switches; reject stale research inserts rather than overwrite newer text.
 - Keep failed memory/device/model-assignment actions visible, and reconcile mounted chat state after history deletion.

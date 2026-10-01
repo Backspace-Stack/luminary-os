@@ -15,6 +15,7 @@
 
 import path from 'path';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import { StringDecoder } from 'string_decoder';
 
 export type Resolved = { abs: string } | { error: string };
@@ -60,6 +61,7 @@ export class Sandbox {
   readonly roots: string[];
   /** Primary root — preserves single-root semantics (relative paths, default "."). */
   readonly root: string;
+  private readonly comparisonRoots: string[];
 
   /**
    * @param root           Absolute sandbox root, OR a list of allowed roots.
@@ -82,6 +84,12 @@ export class Sandbox {
     if (list.length === 0) throw new Error('Sandbox requires at least one root directory.');
     this.roots = list.map((r) => path.resolve(r));
     this.root = this.roots[0];
+    // realpath expands Windows 8.3 names (e.g. RUNNER~1). Compare against
+    // both spellings, but never widen a root through a configured junction.
+    this.comparisonRoots = this.roots.flatMap((r) => {
+      const canonical = process.platform === 'win32' ? canonicalWindowsPath(r, true) : null;
+      return canonical ? [r, canonical] : [r];
+    });
   }
 
   /**
@@ -117,6 +125,12 @@ export class Sandbox {
     // 1. Lexical containment — inside ANY allowed root.
     if (!this.isInside(abs)) return { error: `Path "${raw}" resolves outside the allowed folders and was refused.` };
 
+    // Expand protected-path aliases only after lexical confinement. In
+    // particular, outside UNC paths must be rejected without network I/O.
+    if (this.isProtected(abs, true)) {
+      return { error: `Path "${raw}" is a protected Lumen system file (identity or curated memory) and cannot be accessed.` };
+    }
+
     // 2. The target itself must not be a symlink — we never follow them.
     const lst = await fs.lstat(abs).catch(() => null);
     if (lst?.isSymbolicLink()) return { error: `Path "${raw}" is a symlink; symlink traversal is refused.` };
@@ -130,7 +144,7 @@ export class Sandbox {
       // 4. Re-check protection against the CANONICAL path. A Windows 8.3
       //    short name ("IDENTI~1.JSON") or a symlink alias names the
       //    protected file without ever matching it lexically in step 0.
-      if (real && nearest === abs && this.isProtected(real)) {
+      if (real && nearest === abs && this.isProtected(real, true)) {
         return { error: `Path "${raw}" is a protected Lumen system file (identity or curated memory) and cannot be accessed.` };
       }
     }
@@ -258,15 +272,15 @@ export class Sandbox {
 
   /** True if `abs` sits inside (or equals) any allowed root. */
   isInside(abs: string): boolean {
-    return this.roots.some((root) => {
+    return this.comparisonRoots.some((root) => {
       const rel = path.relative(root, abs);
       return rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
     });
   }
 
-  isProtected(abs: string): boolean {
-    const target = normaliseForCompare(abs);
-    return this.protectedPaths.some((p) => normaliseForCompare(p) === target);
+  isProtected(abs: string, canonical = false): boolean {
+    const target = normaliseForCompare(abs, canonical);
+    return this.protectedPaths.some((p) => normaliseForCompare(p, canonical) === target);
   }
 
   /** Deepest ancestor of `abs` (inclusive) that exists on disk, or null. */
@@ -288,16 +302,46 @@ export class Sandbox {
  * SAME file but resolves to a different string — a plain exact match let it
  * straight through the protected-path gate.
  */
-function normaliseForCompare(p: string): string {
+function normaliseForCompare(p: string, canonical: boolean): string {
   let s = path.resolve(p);
   if (process.platform === 'win32') {
     const drive = s.slice(0, 2);      // keep the "C:" of a drive-letter path
     const rest = s.slice(2);
     const colon = rest.indexOf(':');  // any further colon starts a stream name
     if (colon !== -1) s = drive + rest.slice(0, colon);
+    if (canonical) s = canonicalWindowsPath(s) ?? s;
     s = s.toLowerCase();
   }
   return s;
+}
+
+/** Expand short names, including existing ancestors of a not-yet-created file. */
+function canonicalWindowsPath(abs: string, refuseSymlinks = false): string | null {
+  if (refuseSymlinks) {
+    let current = abs;
+    for (;;) {
+      try {
+        if (fsSync.lstatSync(current).isSymbolicLink()) return null;
+      } catch (err) {
+        if (!['ENOENT', 'ENOTDIR'].includes((err as NodeJS.ErrnoException).code ?? '')) return null;
+      }
+      const parent = path.dirname(current);
+      if (parent === current) break;
+      current = parent;
+    }
+  }
+  let current = abs;
+  const missing: string[] = [];
+  for (;;) {
+    try { return path.join(fsSync.realpathSync.native(current), ...missing); }
+    catch (err) {
+      if (!['ENOENT', 'ENOTDIR'].includes((err as NodeJS.ErrnoException).code ?? '')) return null;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) return null;
+    missing.unshift(path.basename(current));
+    current = parent;
+  }
 }
 
 /** Shared, human/model-readable rendering of common fs errors. */
