@@ -3,41 +3,17 @@
 // Luminary OS — Safe cross-platform process spawning
 // scripts/lib/shell.js
 //
-// ROOT CAUSE THIS FILE FIXES
-// ──────────────────────────
-// On Windows, npm/npx/vite/ts-node-dev are installed as `.cmd`
-// shim files (npm.cmd, vite.cmd, ts-node-dev.cmd). Windows'
-// CreateProcess API cannot execute a `.cmd` file directly —
-// only a real command interpreter (cmd.exe) knows how to run
-// it. This is OFFICIAL, DOCUMENTED Node.js behaviour:
-//
-//   "On Windows, .bat and .cmd files cannot be directly
-//    invoked... If a file is invoked using spawn() and is a
-//    script that is not an executable... it must be invoked
-//    either using a shell or using exec()."
-//   — https://nodejs.org/api/child_process.html
-//     #spawning-bat-and-cmd-files-on-windows
-//
-// So `spawnSync('npm.cmd', ['--version'], { shell: false })`
-// fails with ENOENT EVEN WHEN npm.cmd EXISTS AND IS ON PATH.
-// This is exactly why "npm.cmd -v" works when a person types
-// it into a terminal (because the terminal itself IS a shell
-// that knows how to run .cmd files) but silently breaks when
-// a Node script tries to spawn it directly with shell:false.
-//
-// THE FIX
-// ───────
-// Every spawn in this project goes through runSync()/runAsync()
-// below, which ALWAYS forces `shell: true` on Windows — no call
-// site can ever forget this again, because the flag is applied
-// AFTER any options the caller passes in, overriding mistakes.
-// On POSIX this flag is left off (unnecessary there, and
-// process-group signal handling is cleaner without a shell
-// layer in between).
+// Windows cannot execute npm's .cmd shims directly. For the
+// known Node CLIs used by this launcher, resolve the installed
+// JavaScript entry point beside the shim and run it with Node.
+// Arguments stay separate OS arguments, including paths with
+// spaces and shell metacharacters. Ordinary executables also
+// run directly. A shell is used only when explicitly requested.
 // =============================================================
 
 const { spawn, spawnSync } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
 const IS_WIN = process.platform === 'win32';
 
@@ -62,10 +38,12 @@ function pathKey(env) {
  * anything else has been fixed. Returns an array of resolved
  * paths, or an empty array if not found. Never throws.
  */
-function which(name) {
-  const finder = IS_WIN ? 'where' : 'which';
+function which(name, opts = {}) {
+  const finder = IS_WIN ? 'where.exe' : 'which';
   try {
-    const r = spawnSync(finder, [name], { encoding: 'utf8', shell: false });
+    const r = spawnSync(finder, [name], {
+      cwd: opts.cwd, env: opts.env, encoding: 'utf8', windowsHide: true, shell: false,
+    });
     if (r.status !== 0 || !r.stdout) return [];
     return r.stdout.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
   } catch {
@@ -79,16 +57,8 @@ function which(name) {
  * locally-installed CLI tools resolve by their bare name
  * (vite, ts-node-dev) without needing npx or an absolute path.
  *
- * This sidesteps an entirely separate Windows landmine: if we
- * built an absolute path to the binary ourselves and the
- * project lives under a directory containing a space (e.g.
- * "C:\Users\Jane Doe\luminary-os"), that path would need exact
- * quoting once it's interpolated into a shell command line.
- * Using a bare name + PATH prepend means the only strings that
- * ever touch the shell command line are space-free tokens like
- * "vite" — cwd itself is passed as a separate OS-level
- * parameter (lpCurrentDirectory) and never string-concatenated,
- * so it can safely contain spaces no matter what.
+ * Resolution uses the caller's cwd/env and never builds a shell
+ * command line, so paths containing spaces remain ordinary paths.
  */
 function withLocalBin(cwd, extraEnv = {}) {
   const localBin = path.join(cwd, 'node_modules', '.bin');
@@ -101,42 +71,60 @@ function withLocalBin(cwd, extraEnv = {}) {
   };
 }
 
-/**
- * Synchronous spawn with the Windows .cmd fix permanently
- * applied. Use for short commands where you need the result
- * immediately (version checks, `npm install`).
- *
- * `shell: IS_WIN` is intentionally placed AFTER the spread of
- * `opts` so a caller can never accidentally re-introduce the
- * original bug by passing `shell: false`.
- */
+// Fixed entry points for the CLIs used in start/setup/doctor.
+// Do not parse arbitrary batch files or interpolate their arguments.
+const NODE_CLI = {
+  npm: ['node_modules', 'npm', 'bin', 'npm-cli.js'],
+  vite: ['..', 'vite', 'bin', 'vite.js'],
+  tsx: ['..', 'tsx', 'dist', 'cli.mjs'],
+};
+
+function resolveCommand(cmd, args, opts) {
+  if (!IS_WIN || opts.shell) return { cmd, args };
+  const name = path.basename(cmd).replace(/\.cmd$/i, '').toLowerCase();
+  if (!Object.hasOwn(NODE_CLI, name)) return { cmd, args };
+
+  const hasDirectory = path.dirname(cmd) !== '.';
+  const resolved = hasDirectory
+    ? [path.resolve(opts.cwd || process.cwd(), cmd)]
+    : which(cmd, opts);
+  for (const shim of resolved) {
+    const entry = path.resolve(path.dirname(shim), ...NODE_CLI[name]);
+    if (fs.existsSync(entry)) return { cmd: process.execPath, args: [entry, ...args] };
+  }
+  // Let spawn preserve its normal error/exit contracts when no
+  // supported installed entry point can be found.
+  return { cmd, args };
+}
+
+/** Synchronous process execution for version checks and installation. */
 function runSync(cmd, args = [], opts = {}) {
-  return spawnSync(cmd, args, {
+  const command = resolveCommand(cmd, args, opts);
+  return spawnSync(command.cmd, command.args, {
     encoding: 'utf8',
-    windowsHide: true,
     ...opts,
-    shell: IS_WIN,
+    windowsHide: true,
+    shell: opts.shell ?? false,
   });
 }
 
 /**
- * Asynchronous spawn with the same fix applied. Use for
- * long-running processes (dev servers).
+ * Asynchronous execution with the same command resolution.
+ * Returns the native ChildProcess, preserving stdio and events.
  */
 function runAsync(cmd, args = [], opts = {}) {
-  return spawn(cmd, args, {
-    windowsHide: true,
+  const command = resolveCommand(cmd, args, opts);
+  return spawn(command.cmd, command.args, {
     ...opts,
-    shell: IS_WIN,
+    windowsHide: true,
+    shell: opts.shell ?? false,
   });
 }
 
 /**
  * Kill an entire process tree, cross-platform.
  *   Windows → taskkill /F /T /PID  (walks the whole tree;
- *             essential because shell:true means the PID we
- *             hold is cmd.exe's PID, with the real tool as a
- *             grandchild — /T reaches both)
+ *             reaches descendants started by the CLI)
  *   POSIX   → signal the negative PID, which hits the whole
  *             process group IF the child was spawned with
  *             detached:true (making it a group leader)
@@ -146,6 +134,7 @@ function killTree(pid) {
   if (IS_WIN) {
     spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], {
       stdio: 'ignore',
+      windowsHide: true,
       shell: false, // taskkill.exe is a real executable — no shell needed
     });
   } else {

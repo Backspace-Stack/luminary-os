@@ -36,7 +36,7 @@ function Meta({ label, value }: { label: string; value: string }) {
 
 export default function Models() {
   const {
-    models, running, health, localHealth, loading, error,
+    models, running, health, localHealth, loading, error, eventStatus,
     refresh, loadModel, unloadModel, deleteModel,
     pullModel, cancelPull, pulling, clearError,
   } = useModels();
@@ -223,6 +223,12 @@ export default function Models() {
             <Download size={13} /> Pull Model
           </Button>
         </div>
+      </div>
+      <div role="status" aria-live="polite" className="text-[11px]" style={{ color: 'var(--lum-text-muted)' }}>
+        {eventStatus === 'connected' ? 'Live model updates connected'
+          : eventStatus === 'unauthorized' ? 'Live model updates need API access. Check your authentication configuration.'
+          : eventStatus === 'reconnecting' ? 'Reconnecting live model updates… You can still refresh manually.'
+          : 'Connecting live model updates…'}
       </div>
 
       {/* Pull input panel */}

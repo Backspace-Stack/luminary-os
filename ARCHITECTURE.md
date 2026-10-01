@@ -74,7 +74,9 @@ Model upload is a user API action rather than an agent tool: only safe `.gguf` n
 
 ## Frontend boundary
 
-`frontend/src/services/api.ts` supplies typed requests and NDJSON stream handling. Hooks keep remote state and expose honest errors. `ChatProvider` preserves generation and draft state across page/theme switches. The dashboard and Professional interface use the existing theme system. Model-change notifications currently use native EventSource, whose bearer-token limitation is documented in the README.
+`frontend/src/services/api.ts` supplies typed requests and NDJSON stream handling. Hooks keep remote state and expose honest errors. `ChatProvider` preserves generation and draft state across page/theme switches. The dashboard and Professional interface use the existing theme system. Non-dashboard pages load on demand with a loading state and retry boundary; syntax highlighting is a separate demand-loaded module with a readable plaintext fallback.
+
+Model-change notifications use fetch-based SSE so the same bearer header works for normal requests and event streams. The transport handles split UTF-8/CRLF, bounded data frames, cancellation and reconnect backoff. Authentication rejection stops retries until the runtime token changes. A successful connection refreshes model state because the backend's initial frame is only a comment. Hook refresh versions discard stale responses that could otherwise replace newly authenticated data.
 
 ## Runtime and shutdown
 

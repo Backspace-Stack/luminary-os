@@ -2,13 +2,7 @@ import { useState } from 'react';
 import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
 import Layout from '@/components/layout/Layout';
 import Dashboard from '@/pages/Dashboard';
-import Chat from '@/pages/Chat';
-import Models from '@/pages/Models';
-import Agents from '@/pages/Agents';
-import Memory from '@/pages/Memory';
-import Devices from '@/pages/Devices';
-import ThemeCenter from '@/pages/ThemeCenter';
-import Settings from '@/pages/Settings';
+import { lazyPage } from '@/components/system/LazyPage';
 import BootVeil from '@/components/system/BootVeil';
 import LockScreen from '@/components/system/LockScreen';
 import PrivacyBlur from '@/components/system/PrivacyBlur';
@@ -19,6 +13,15 @@ import { getPrefs } from '@/lib/prefs';
 import { pageVariants } from '@/lib/motion';
 import { ChatProvider } from '@/store/ChatContext';
 import type { NavPage } from '@/types';
+
+// Keep the first Dashboard render independent of the other page bundles.
+const Chat = lazyPage(() => import('@/pages/Chat'));
+const Models = lazyPage(() => import('@/pages/Models'));
+const Agents = lazyPage(() => import('@/pages/Agents'));
+const Memory = lazyPage(() => import('@/pages/Memory'));
+const Devices = lazyPage(() => import('@/pages/Devices'));
+const ThemeCenter = lazyPage(() => import('@/pages/ThemeCenter'));
+const Settings = lazyPage(() => import('@/pages/Settings'));
 
 export default function App() {
   const [page, setPage]         = useState<NavPage>('dashboard');

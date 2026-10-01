@@ -6,13 +6,22 @@
 // Luminary dark design language (see .lum-md in index.css).
 // ============================================================
 
-import { useState } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Copy, Check } from 'lucide-react';
+
+type Highlighter = ComponentType<{ language: string; text: string }>;
+let highlighterRequest: Promise<{ default: Highlighter }> | undefined;
+
+function loadHighlighter() {
+  return highlighterRequest ??= import('./HighlightedCode').catch(error => {
+    // Keep plaintext usable when a chunk cannot load; future code blocks can retry.
+    highlighterRequest = undefined;
+    throw error;
+  });
+}
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -68,8 +77,19 @@ function CopyButton({ text }: { text: string }) {
 
 function CodeBlock({ className, children }: { className?: string; children?: React.ReactNode }) {
   const match = /language-([\w-]+)/.exec(className ?? '');
+  const language = match?.[1];
+  const [Highlighter, setHighlighter] = useState<Highlighter | null>(null);
   const text = String(children ?? '').replace(/\n$/, '');
   const isBlock = Boolean(match) || text.includes('\n');
+
+  useEffect(() => {
+    if (!language || language === 'text' || language === 'plaintext') return;
+    let active = true;
+    void loadHighlighter().then(module => {
+      if (active) setHighlighter(() => module.default);
+    }).catch(() => { /* The styled plaintext fallback remains readable and copyable. */ });
+    return () => { active = false; };
+  }, [language]);
 
   if (!isBlock) {
     return <code className="lum-inline-code">{children}</code>;
@@ -83,21 +103,19 @@ function CodeBlock({ className, children }: { className?: string; children?: Rea
         </span>
         <CopyButton text={text} />
       </div>
-      <SyntaxHighlighter
-        language={match?.[1] ?? 'text'}
-        style={oneDark}
-        PreTag="div"
-        customStyle={{
+      {Highlighter && language ? <Highlighter language={language} text={text} /> : (
+        <div style={{
           margin: 0,
           background: '#0B0E14',
           fontSize: 12.5,
           borderRadius: '0 0 8px 8px',
           padding: '12px 14px',
-        }}
-        codeTagProps={{ style: { fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace" } }}
-      >
-        {text}
-      </SyntaxHighlighter>
+          overflowX: 'auto',
+          whiteSpace: 'pre',
+        }}>
+          <code style={{ fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace" }}>{text}</code>
+        </div>
+      )}
     </div>
   );
 }

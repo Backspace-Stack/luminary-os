@@ -14,6 +14,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { modelsApi } from '@/services/api';
 import type { LLMModel, RunningModel, ProviderHealth, PullProgress } from '@/types';
+import type { EventStreamState } from '@/services/eventStream';
 
 export interface PullState extends PullProgress {
   name: string;
@@ -27,13 +28,17 @@ export function useModels() {
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
   const [pulling, setPulling]         = useState<PullState | null>(null);
+  const [eventStatus, setEventStatus] = useState<EventStreamState>('connecting');
   const pullAbort                     = useRef<AbortController | null>(null);
+  const refreshVersion                = useRef(0);
 
   const refresh = useCallback(async () => {
+    const version = ++refreshVersion.current;
     setLoading(true);
     try {
       // Health first — it also tells the UI why a provider is empty
       const healthMap = await modelsApi.health();
+      if (version !== refreshVersion.current) return;
       setHealth(healthMap['ollama'] ?? null);
       setLocalHealth(healthMap['local'] ?? null);
 
@@ -43,17 +48,19 @@ export function useModels() {
         modelsApi.list(),
         modelsApi.running().catch(() => [] as RunningModel[]),
       ]);
+      if (version !== refreshVersion.current) return;
       setModels(modelList);
       setRunning(runningList);
       setError(null);
     } catch (err) {
+      if (version !== refreshVersion.current) return;
       setModels([]);
       setRunning([]);
       setHealth(null);
       setLocalHealth(null);
       setError(err instanceof Error ? err.message : 'Failed to reach the backend');
     } finally {
-      setLoading(false);
+      if (version === refreshVersion.current) setLoading(false);
     }
   }, []);
 
@@ -62,12 +69,7 @@ export function useModels() {
   // Live updates: the backend pushes an SSE event whenever the model
   // set changes (GGUF dropped into the models folder, pull, delete,
   // load/unload) — the page updates with no manual Refresh.
-  useEffect(() => {
-    const source = new EventSource('/api/models/events');
-    source.onmessage = () => { refresh(); };
-    // onerror: EventSource auto-reconnects; nothing to do
-    return () => source.close();
-  }, [refresh]);
+  useEffect(() => modelsApi.subscribe(() => { void refresh(); }, setEventStatus), [refresh]);
 
   const runAction = async (action: () => Promise<unknown>) => {
     try {
@@ -107,7 +109,7 @@ export function useModels() {
   const cancelPull = () => pullAbort.current?.abort();
 
   return {
-    models, running, health, localHealth, loading, error,
+    models, running, health, localHealth, loading, error, eventStatus,
     refresh, loadModel, unloadModel, deleteModel,
     pullModel, cancelPull, pulling,
     clearError: () => setError(null),

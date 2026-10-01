@@ -21,7 +21,7 @@
     "build": "npm run build:backend && npm run build:frontend",
     "lint": "npm run lint --prefix backend && npm run lint --prefix frontend",
     "test": "node scripts/test.js",
-    "typecheck": "npm exec --prefix backend -- tsc --noEmit --project backend/tsconfig.tests.json && npm exec --prefix frontend -- tsc --noEmit --project frontend/tsconfig.json",
+    "typecheck": "npm exec --prefix backend -- tsc --noEmit --project backend/tsconfig.tests.json && npm exec --prefix frontend -- tsc --noEmit --project frontend/tsconfig.tests.json",
     "check:repository": "node scripts/check-repository.js"
   },
   "devDependencies": {

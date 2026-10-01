@@ -14,6 +14,7 @@ import type {
   ChatMessage, PullProgress, AppSettings, PendingConfirmation,
   Analytics, AnalyticsRange, Note, AskNoteResult,
 } from '@/types';
+import { subscribeEventStream, type EventStreamState } from './eventStream';
 
 const BASE = '/api';
 
@@ -23,11 +24,15 @@ const BASE = '/api';
 // client used to send one, so switching the backend gate on 401'd the
 // entire UI. Set VITE_API_AUTH_TOKEN to the same value, or call
 // setApiAuthToken() at runtime.
-let authToken: string | null = import.meta.env.VITE_API_AUTH_TOKEN?.trim() || null;
+let authToken: string | null = import.meta.env?.VITE_API_AUTH_TOKEN?.trim() || null;
+const authListeners = new Set<() => void>();
 
 /** Point the client at a token at runtime. Pass null to clear it. */
 export function setApiAuthToken(token: string | null): void {
-  authToken = token?.trim() ? token.trim() : null;
+  const next = token?.trim() || null;
+  if (next === authToken) return;
+  authToken = next;
+  authListeners.forEach(listener => listener());
 }
 
 /** Standard headers: JSON content type, plus the bearer token when set. */
@@ -359,6 +364,29 @@ export const agentsApi = {
 
 // ── Models ─────────────────────────────────────────────────────
 export const modelsApi = {
+  /** Authenticated model events; token changes restart the connection immediately. */
+  subscribe: (onChange: () => void, onState?: (state: EventStreamState) => void): (() => void) => {
+    let stop = () => {};
+    const start = () => {
+      stop();
+      stop = subscribeEventStream(`${BASE}/models/events`, data => {
+        let event: unknown;
+        try { event = JSON.parse(data); } catch { return; }
+        if (event && typeof event === 'object' && 'type' in event && event.type === 'models-changed') onChange();
+      }, {
+        headers: () => authHeaders(),
+        onState: state => {
+          // The server's initial frame is only a comment. Reconnecting after
+          // authentication must refresh the list without waiting for a change.
+          if (state === 'connected') onChange();
+          onState?.(state);
+        },
+      });
+    };
+    authListeners.add(start);
+    start();
+    return () => { authListeners.delete(start); stop(); };
+  },
   list: () => apiFetch<LLMModel[]>('/models'),
 
   providers: () =>

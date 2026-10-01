@@ -91,7 +91,7 @@ The Kernel is the composition root; registries expose existing contracts for age
 
 ## Security and privacy
 
-The API binds to loopback by default. HTTP Host and browser Origin checks run before request parsing; an explicit non-loopback bind requires an API token. `API_AUTH_TOKEN` enables bearer authentication for `/api` except the minimal health probe. Configure the matching `VITE_API_AUTH_TOKEN` for a private frontend build, or call the existing runtime token setter. A Vite variable becomes browser-visible code: never distribute a build containing a personal token. Native EventSource model notifications currently cannot send bearer headers; use a trusted local proxy or manual Refresh with token-protected deployments.
+The API binds to loopback by default. HTTP Host and browser Origin checks run before request parsing; an explicit non-loopback bind requires an API token. `API_AUTH_TOKEN` enables bearer authentication for `/api` except the minimal health probe. Configure the matching `VITE_API_AUTH_TOKEN` for a private frontend build, or call the existing runtime token setter. A Vite variable becomes browser-visible code: never distribute a build containing a personal token. Live model notifications use the same bearer header, reconnect after network loss, and restart when the runtime token changes. Credentials are not put in event-stream URLs.
 
 Tool arguments are untrusted. File access is limited to the sandbox plus explicitly configured `FILE_ALLOWED_DIRS`. Mutations pause for approval of a server-generated token tied to the agent and conversation. Tokens expire after 15 minutes and are consumed once; denial revokes the paused turn. Git commands disable executable configuration surfaces and use restricted options.
 
@@ -105,13 +105,13 @@ Conversations, identity, curated memories, notes, keys, and models stay in local
 - Docker files under `Other/` and the component Dockerfiles are **experimental and unsupported for normal installation**. Do not use them as a deployment guide.
 - GGUF hardware compatibility and live inference need testing with your models. GGUF discovery does not guarantee a file is safe or runnable; use trusted sources.
 - Cloud adapters and Discord require credentials and may change upstream. Tests mock network boundaries; they do not certify every hosted model.
-- The frontend includes a large syntax-highlighting bundle. UI accessibility and non-Windows coverage remain areas for improvement.
+- Pages load on demand, and the full syntax-highlighting bundle is fetched only for language-tagged code. That optional bundle remains large; readable plaintext remains available if highlighting cannot load. UI accessibility and non-Windows coverage remain areas for improvement.
 - MIT license text is provided, but the copyright-holder placeholder must be reviewed before publication.
 
 ## Development
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md). Tests use Node's native runner with `tsx`; they exercise temporary files/SQLite and mocked model responses without Ollama, API keys, hardware, or model downloads. GitHub CI runs lint, tests, and builds on Windows and Linux; hosted execution remains unverified until publication.
+Read [CONTRIBUTING.md](CONTRIBUTING.md). Tests use Node's native runner with `tsx`; they exercise temporary files/SQLite, real local HTTP streaming, launcher processes and mocked model responses without Ollama, API keys, hardware, or model downloads. GitHub CI runs lint, tests, and builds on Windows and Linux; hosted execution remains unverified until publication.
 
-Near-term priorities: wider tool-boundary tests, native inference integration tests with real models, a broader accessibility review, authenticated live model notifications, and verified macOS/Linux setup. No dates are promised.
+Near-term priorities: wider tool-boundary tests, native inference integration tests with real models, a broader accessibility review, a maintained plugin example, and verified macOS/Linux setup. No dates are promised.
 
 See [CHANGELOG.md](CHANGELOG.md) and [release checklist](docs/release-checklist.md). Licensed under [MIT](LICENSE).
