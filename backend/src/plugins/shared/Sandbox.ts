@@ -62,6 +62,7 @@ export class Sandbox {
   /** Primary root — preserves single-root semantics (relative paths, default "."). */
   readonly root: string;
   private readonly comparisonRoots: string[];
+  private readonly pathAliases: Array<{ alias: string; canonical: string }> = [];
 
   /**
    * @param root           Absolute sandbox root, OR a list of allowed roots.
@@ -86,10 +87,26 @@ export class Sandbox {
     this.root = this.roots[0];
     // realpath expands Windows 8.3 names (e.g. RUNNER~1). Compare against
     // both spellings, but never widen a root through a configured junction.
-    this.comparisonRoots = this.roots.flatMap((r) => {
+    const comparisonRoots = this.roots.flatMap((r) => {
       const canonical = process.platform === 'win32' ? canonicalWindowsPath(r, true) : null;
+      if (canonical) {
+        let ancestor = r;
+        for (;;) {
+          const expanded = canonicalWindowsPath(ancestor);
+          if (expanded) {
+            for (const alias of [ancestor, path.join(path.dirname(expanded), path.basename(ancestor))]) {
+              if (alias.toLowerCase() !== expanded.toLowerCase()) this.pathAliases.push({ alias, canonical: expanded });
+            }
+          }
+          const parent = path.dirname(ancestor);
+          if (parent === ancestor) break;
+          ancestor = parent;
+        }
+      }
       return canonical ? [r, canonical] : [r];
     });
+    this.pathAliases.sort((a, b) => b.alias.length - a.alias.length);
+    this.comparisonRoots = comparisonRoots.map((r) => this.expandKnownAliases(r));
   }
 
   /**
@@ -272,10 +289,25 @@ export class Sandbox {
 
   /** True if `abs` sits inside (or equals) any allowed root. */
   isInside(abs: string): boolean {
+    const comparable = this.expandKnownAliases(abs);
     return this.comparisonRoots.some((root) => {
-      const rel = path.relative(root, abs);
+      const rel = path.relative(root, comparable);
       return rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
     });
+  }
+
+  /** Pure lexical expansion of aliases learned from trusted roots, never caller I/O. */
+  private expandKnownAliases(abs: string): string {
+    let expanded = abs;
+    for (let i = 0; i < this.pathAliases.length; i++) {
+      const match = this.pathAliases.find(({ alias }) => {
+        const rel = path.relative(alias, expanded);
+        return rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
+      });
+      if (!match) break;
+      expanded = path.join(match.canonical, path.relative(match.alias, expanded));
+    }
+    return expanded;
   }
 
   isProtected(abs: string, canonical = false): boolean {

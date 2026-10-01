@@ -41,6 +41,8 @@ test('filesystem blocks symlink targets, ancestor junction escapes, and protecte
 });
 
 test('filesystem accepts Windows short-name roots without exposing protected files or junction escapes', { skip: process.platform !== 'win32' }, async (t) => {
+  root = path.join(root, 'multiple alias ancestors', 'inner sandbox folder');
+  await fs.mkdir(root, { recursive: true });
   const script = `Add-Type -TypeDefinition 'using System; using System.Text; using System.Runtime.InteropServices; public static class ShortPath { [DllImport("kernel32.dll", CharSet=CharSet.Unicode)] public static extern uint GetShortPathName(string path, StringBuilder output, uint size); }'; $buffer = New-Object System.Text.StringBuilder 32768; if ([ShortPath]::GetShortPathName($env:LUMINARY_TEST_ALIAS_ROOT, $buffer, 32768) -eq 0) { exit 1 }; [Console]::Write($buffer.ToString())`;
   const shortRoot = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
     encoding: 'utf8', windowsHide: true, env: { ...process.env, LUMINARY_TEST_ALIAS_ROOT: root },
@@ -51,7 +53,8 @@ test('filesystem accepts Windows short-name roots without exposing protected fil
   await fs.mkdir(path.join(root, 'nested'));
   await fs.writeFile(path.join(root, 'nested', 'unicode.txt'), '€ text');
   const sandbox = new Sandbox(shortRoot, [path.join(shortRoot, 'protected-identity.txt'), path.join(shortRoot, 'future-secret.txt')]);
-  for (const value of ['nested/unicode.txt', path.join(root, 'nested', 'unicode.txt'), 'new/file.txt']) {
+  const mixedRoot = path.join(path.dirname(root), path.basename(shortRoot));
+  for (const value of ['nested/unicode.txt', path.join(root, 'nested', 'unicode.txt'), path.join(mixedRoot, 'nested', 'unicode.txt'), 'new/file.txt']) {
     const resolved = await sandbox.safeResolve(value);
     assert.ok('abs' in resolved, JSON.stringify(resolved));
   }
@@ -67,6 +70,8 @@ test('filesystem accepts Windows short-name roots without exposing protected fil
   assert.ok('error' in await sandbox.safeResolve('escape/file.txt'));
   const junctionRoot = path.join(temp, 'junction-root'); await fs.symlink(outside, junctionRoot, 'junction');
   assert.ok('error' in await new Sandbox(junctionRoot).safeResolve('file.txt'));
+  await fs.mkdir(path.join(outside, 'child'));
+  assert.ok('error' in await new Sandbox(path.join(junctionRoot, 'child')).safeResolve('file.txt'));
   process.env.FILE_SANDBOX_DIR = shortRoot;
   const plugin = new FilePlugin(); await plugin.initialize();
   assert.equal((await plugin.execute(action('write', { path: 'created/file.txt', content: 'alias write' }))).success, true);
