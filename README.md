@@ -2,7 +2,7 @@
 
 # Luminary OS
 
-A local-first AI agent runtime and control interface for conversations, model routing, confirmation-gated tools, memory, and notes. Also known as **Lumen Civilian**.
+A local-first AI agent runtime and control interface for conversations, model routing, confirmation-gated tools, memory, and notes.
 
 ![Node 24](https://img.shields.io/badge/Node-24_LTS-339933?logo=node.js) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript) ![License MIT](https://img.shields.io/badge/license-MIT-blue)
 
